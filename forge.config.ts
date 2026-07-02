@@ -10,10 +10,18 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    executableName: "SMC-Copilot",
+    download: {
+      mirrorOptions: {
+        mirror: "https://npmmirror.com/mirrors/electron/",
+      },
+    },
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({
+      setupExe: "SMC-Copilot.exe",
+    }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({}),
     new MakerDeb({}),

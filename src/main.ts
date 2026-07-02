@@ -72,7 +72,7 @@ app.whenReady().then(async () => {
   try {
     createWindow();
     await installExtensions();
-    checkForUpdates();
+    
     await setupORPC();
   } catch (error) {
     console.error("Error during app initialization:", error);

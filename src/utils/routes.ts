@@ -10,6 +10,6 @@ declare module "@tanstack/react-router" {
 export const router = createRouter({
   routeTree,
   history: createMemoryHistory({
-    initialEntries: ["/"],
+    initialEntries: ["/dashboard"],
   }),
 });

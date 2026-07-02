@@ -1,0 +1,10 @@
+{
+  "defaultBrowserType": "chromium",
+  "defaultRunMode": "headed",
+  "saveScreenshots": true,
+  "enableTrace": true,
+  "artifactPath": "C:\\AutoTask\\artifacts",
+  "logLevel": "INFO",
+  "themeMode": "system",
+  "mockDelayMs": 300
+}

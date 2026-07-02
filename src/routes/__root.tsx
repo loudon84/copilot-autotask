@@ -1,13 +1,14 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Activity } from "react";
 import { inDevelopment } from "@/constants";
+import { AppShell } from "@/components/layout/app-shell";
 import BaseLayout from "@/layouts/base-layout";
 
 function Root() {
   return (
     <BaseLayout>
-      <Outlet />
+      <AppShell />
       <Activity mode={inDevelopment ? "visible" : "hidden"}>
         <TanStackRouterDevtools />
       </Activity>
