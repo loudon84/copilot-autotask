@@ -40,7 +40,11 @@ export function TasksListPage() {
     queryFn: mockApi.getTasks,
   });
 
-  const onUpdate = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  const onUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["human-action"] });
+    queryClient.invalidateQueries({ queryKey: ["web-tabs"] });
+  };
 
   const customers = [...new Set(tasks.map((t) => t.customerName))];
 

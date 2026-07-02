@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,16 +10,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
-import { openProfileFolder } from "@/actions/browser";
-import { mockApi } from "@/services/mock-api";
+import {
+  clearPortalSession,
+  openExternal,
+  openPortal,
+} from "@/actions/web-workspace";
 import type { SRMPortal } from "@/types/srm-portal";
 import {
   ExternalLink,
-  FolderOpen,
+  Globe,
   MoreHorizontal,
   RotateCcw,
   TestTube,
-  Eye,
 } from "lucide-react";
 
 type PortalActionsProps = {
@@ -29,39 +31,33 @@ type PortalActionsProps = {
 };
 
 export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps) {
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [resetOpen, setResetOpen] = useState(false);
-
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["browser-sessions"],
-    queryFn: mockApi.getBrowserSessions,
-  });
-
-  const activeSession = sessions.find(
-    (s) => s.portalId === portal.id && (s.status === "OPENED" || s.status === "ATTACHED")
-  );
   const disabled = portal.status === "disabled";
-
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["browser-sessions"] });
-    queryClient.invalidateQueries({ queryKey: ["srm-portals"] });
-    onUpdate?.();
-  };
 
   const handleOpen = async (testLogin = false) => {
     try {
-      const session = await mockApi.openPortalMock({
+      const targetUrl = testLogin ? portal.loginPageUrl ?? portal.url : portal.url;
+      if (portal.clientOpenMode === "system_browser") {
+        await openExternal(targetUrl);
+        toast.success(`已在外部浏览器打开: ${portal.name}`);
+        return;
+      }
+
+      const tab = await openPortal({
         portalId: portal.id,
-        targetUrl: testLogin ? portal.loginPageUrl ?? portal.url : undefined,
-        source: testLogin ? "test_login" : "srm_portal_list",
+        url: targetUrl,
+        title: portal.name,
+        sessionPartition: portal.clientSessionPartition,
+        openMode: portal.clientOpenMode,
       });
+
       toast.success(
-        testLogin
-          ? `已打开测试登录页面: ${portal.name}`
-          : `已快速打开: ${portal.name}`,
-        { description: `Session: ${session.id}` }
+        testLogin ? `已打开测试登录: ${portal.name}` : `已快速打开: ${portal.name}`,
+        { description: `Tab: ${tab.id}` }
       );
-      invalidate();
+      navigate({ to: "/web-workspace" });
+      onUpdate?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "打开失败");
     }
@@ -69,21 +65,21 @@ export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps)
 
   const handleReset = async () => {
     try {
-      await mockApi.resetPortalProfileMock(portal.id);
-      toast.success(`已重置 ${portal.name} 的登录态`);
+      await clearPortalSession(portal.clientSessionPartition);
+      toast.success(`已重置 ${portal.name} 的本地登录态`);
       setResetOpen(false);
-      invalidate();
+      onUpdate?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "重置失败");
     }
   };
 
-  const handleOpenFolder = async () => {
+  const handleOpenExternal = async () => {
     try {
-      await openProfileFolder(portal.profilePath);
-      toast.success("已打开 Profile 目录");
-    } catch {
-      toast.info(`Profile 目录: ${portal.profilePath}`);
+      await openExternal(portal.url);
+      toast.success("已在外部浏览器打开");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "打开失败");
     }
   };
 
@@ -98,23 +94,18 @@ export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps)
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem disabled={disabled} onClick={() => handleOpen(false)}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              {activeSession ? "重新打开" : "快速打开"}
+              <Globe className="mr-2 h-4 w-4" />
+              快速打开
             </DropdownMenuItem>
             <DropdownMenuItem disabled={disabled} onClick={() => handleOpen(true)}>
-              <TestTube className="mr-2 h-4 w-4" /> 测试登录
+              <TestTube className="mr-2 h-4 w-4" /> 测试打开
             </DropdownMenuItem>
-            {activeSession && (
-              <DropdownMenuItem onClick={() => toast.info(`会话: ${activeSession.id}`)}>
-                <Eye className="mr-2 h-4 w-4" /> 查看会话
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem onClick={handleOpenExternal}>
+              <ExternalLink className="mr-2 h-4 w-4" /> 外部浏览器打开
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleOpenFolder}>
-              <FolderOpen className="mr-2 h-4 w-4" /> 打开 Profile 目录
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setResetOpen(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" /> 重置登录态
+              <RotateCcw className="mr-2 h-4 w-4" /> 重置本地登录态
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -122,7 +113,7 @@ export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps)
           open={resetOpen}
           onOpenChange={setResetOpen}
           title="重置登录态"
-          description={`确定要重置 ${portal.name} 的浏览器 Profile 吗？这将清除已保存的登录态。`}
+          description={`确定要重置 ${portal.name} 的本地 Session 吗？这将清除已保存的 cookie 和缓存。`}
           confirmLabel="确认重置"
           onConfirm={handleReset}
         />
@@ -133,19 +124,14 @@ export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps)
   return (
     <div className="flex flex-wrap gap-1">
       <Button variant="outline" size="sm" disabled={disabled} onClick={() => handleOpen(false)}>
-        <ExternalLink className="mr-1 h-3 w-3" />
-        {activeSession ? "重新打开" : "快速打开"}
+        <Globe className="mr-1 h-3 w-3" />
+        快速打开
       </Button>
       <Button variant="outline" size="sm" disabled={disabled} onClick={() => handleOpen(true)}>
-        <TestTube className="mr-1 h-3 w-3" /> 测试登录
+        <TestTube className="mr-1 h-3 w-3" /> 测试打开
       </Button>
-      {activeSession && (
-        <Button variant="outline" size="sm" onClick={() => toast.info(`会话: ${activeSession.id}`)}>
-          <Eye className="mr-1 h-3 w-3" /> 查看会话
-        </Button>
-      )}
-      <Button variant="outline" size="sm" onClick={handleOpenFolder}>
-        <FolderOpen className="mr-1 h-3 w-3" /> 打开 Profile
+      <Button variant="outline" size="sm" onClick={handleOpenExternal}>
+        <ExternalLink className="mr-1 h-3 w-3" /> 外部浏览器打开
       </Button>
       <Button variant="outline" size="sm" onClick={() => setResetOpen(true)}>
         <RotateCcw className="mr-1 h-3 w-3" /> 重置登录态
@@ -154,7 +140,7 @@ export function PortalActions({ portal, compact, onUpdate }: PortalActionsProps)
         open={resetOpen}
         onOpenChange={setResetOpen}
         title="重置登录态"
-        description={`确定要重置 ${portal.name} 的浏览器 Profile 吗？这将清除已保存的登录态。`}
+        description={`确定要重置 ${portal.name} 的本地 Session 吗？这将清除已保存的 cookie 和缓存。`}
         confirmLabel="确认重置"
         onConfirm={handleReset}
       />

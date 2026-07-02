@@ -1,7 +1,7 @@
-import type { BrowserType } from "@/types/browser";
+import type { ClientOpenMode } from "@/types/web-tab";
 
 export interface AppSettings {
-  defaultBrowserType: BrowserType;
+  defaultBrowserType: "chrome" | "edge" | "chromium";
   defaultRunMode: "headed" | "headless";
   saveScreenshots: boolean;
   enableTrace: boolean;
@@ -9,6 +9,10 @@ export interface AppSettings {
   logLevel: "DEBUG" | "INFO" | "WARN" | "ERROR";
   themeMode: "light" | "dark" | "system";
   mockDelayMs: number;
+
+  defaultOpenMode: ClientOpenMode;
+  allowResetSession: boolean;
+  allowClearAllCache: boolean;
 
   chromeExecutablePath?: string;
   edgeExecutablePath?: string;

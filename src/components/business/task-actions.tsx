@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import type { AutomationTaskStatus } from "@/types/automation-task";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { mockApi } from "@/services/mock-api";
 import { useQuery } from "@tanstack/react-query";
+import { openHumanTask } from "@/actions/web-workspace";
 
 type TaskActionsProps = {
   taskId: string;
@@ -23,12 +25,13 @@ type TaskActionsProps = {
 };
 
 export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsProps) {
+  const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [opening, setOpening] = useState(false);
 
-  const { data: checkpoint } = useQuery({
-    queryKey: ["human-checkpoint", taskId],
-    queryFn: () => mockApi.getHumanCheckpointByTaskId(taskId),
+  const { data: humanAction } = useQuery({
+    queryKey: ["human-action", taskId],
+    queryFn: () => mockApi.getHumanAction(taskId),
     enabled: status === "WAITING_HUMAN" || status === "HUMAN_OPERATING",
   });
 
@@ -48,12 +51,37 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
   };
 
   const handleOpenHuman = async () => {
+    if (!humanAction) {
+      toast.error("未找到人工动作");
+      return;
+    }
     setOpening(true);
     try {
-      const result = await mockApi.openHumanTaskMock({ taskId });
-      toast.success("已打开待人工处理页面", {
-        description: `Session: ${result.session.id}`,
+      let sessionPartition = humanAction.portalId
+        ? `persist:srm:${humanAction.portalId}`
+        : `persist:task:${taskId}`;
+      if (humanAction.portalId) {
+        const portal = await mockApi.getSrmPortalById(humanAction.portalId);
+        if (portal) sessionPartition = portal.clientSessionPartition;
+      }
+
+      const tab = await openHumanTask({
+        taskId,
+        humanActionId: humanAction.id,
+        url: humanAction.targetUrl,
+        title: humanAction.instruction.slice(0, 30),
+        portalId: humanAction.portalId,
+        sessionPartition,
       });
+
+      await mockApi.markHumanOpened({
+        taskId,
+        humanActionId: humanAction.id,
+        clientTabId: tab.id,
+      });
+
+      toast.success("已打开待人工处理页面", { description: `Tab: ${tab.id}` });
+      navigate({ to: "/web-workspace" });
       onUpdate?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "打开失败");
@@ -100,14 +128,9 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
               </>
             )}
             {status === "FAILED" && (
-              <>
-                <DropdownMenuItem onClick={handleOpenHuman} disabled={opening}>
-                  <ExternalLink className="mr-2 h-4 w-4" /> 快速打开
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAction("重试", "QUEUED")}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> 重试
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem onClick={() => handleAction("重试", "QUEUED")}>
+                <RotateCcw className="mr-2 h-4 w-4" /> 重试
+              </DropdownMenuItem>
             )}
             {status !== "SUCCESS" && status !== "SUCCESS_MANUAL" && status !== "CANCELLED" && (
               <DropdownMenuItem onClick={() => handleAction("取消", "CANCELLED")}>
@@ -116,12 +139,12 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        {checkpoint && (
+        {humanAction && (
           <HumanConfirmDialog
             open={confirmOpen}
             onOpenChange={setConfirmOpen}
             taskId={taskId}
-            checkpointId={checkpoint.id}
+            humanActionId={humanAction.id}
             onConfirmed={onUpdate}
           />
         )}
@@ -179,9 +202,6 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
 
         {status === "FAILED" && (
           <>
-            <Button variant="outline" size="sm" onClick={handleOpenHuman} disabled={opening}>
-              <ExternalLink className="mr-1 h-3 w-3" /> 快速打开
-            </Button>
             <Button variant="outline" size="sm" onClick={() => handleAction("重试", "QUEUED")}>
               <RotateCcw className="mr-1 h-3 w-3" /> 重试
             </Button>
@@ -198,12 +218,12 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
         )}
       </div>
 
-      {checkpoint && (
+      {humanAction && (
         <HumanConfirmDialog
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
           taskId={taskId}
-          checkpointId={checkpoint.id}
+          humanActionId={humanAction.id}
           onConfirmed={onUpdate}
         />
       )}

@@ -11,7 +11,6 @@ import { RunLogPanel } from "@/components/business/run-log-panel";
 import { ArtifactList } from "@/components/business/artifact-preview";
 import { TaskActions } from "@/components/business/task-actions";
 import { HumanCheckpointPanel } from "@/components/business/human-checkpoint-panel";
-import { BrowserSessionPanel } from "@/components/business/browser-session-panel";
 import { mockApi } from "@/services/mock-api";
 import type { AuditLog } from "@/types/audit-log";
 
@@ -20,8 +19,8 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
   const onUpdate = () => {
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-    queryClient.invalidateQueries({ queryKey: ["human-checkpoint", taskId] });
-    queryClient.invalidateQueries({ queryKey: ["browser-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["human-action", taskId] });
+    queryClient.invalidateQueries({ queryKey: ["web-tabs"] });
     queryClient.invalidateQueries({ queryKey: ["audit-logs", taskId] });
   };
 
@@ -76,7 +75,6 @@ export function TaskDetailPage({ taskId }: { taskId: string }) {
       </div>
 
       <HumanCheckpointPanel taskId={task.id} status={task.status} onUpdate={onUpdate} />
-      <BrowserSessionPanel taskId={task.id} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

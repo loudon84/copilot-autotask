@@ -5,6 +5,7 @@ export const LOCAL_STORAGE_KEYS = {
 
 export const IPC_CHANNELS = {
   START_ORPC_SERVER: "start-orpc-server",
+  WEB_WORKSPACE_TAB_UPDATED: "web-workspace-tab-updated",
 };
 
 export const ENVIRONMENT_VARIABLES = {

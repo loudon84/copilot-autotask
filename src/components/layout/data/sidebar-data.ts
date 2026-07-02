@@ -8,6 +8,7 @@ import {
   FileImage,
   Settings,
   LayoutGrid,
+  Monitor,
 } from "lucide-react";
 import type { SidebarData } from "../types";
 
@@ -22,7 +23,8 @@ export const sidebarData: SidebarData = {
       title: "主导航",
       items: [
         { title: "工作台", url: "/dashboard", icon: LayoutDashboard },
-        { title: "任务列表", url: "/tasks", icon: ListTodo },        
+        { title: "任务列表", url: "/tasks", icon: ListTodo },
+        { title: "Web 工作区", url: "/web-workspace", icon: Monitor },
         { title: "任务记录", url: "/artifacts", icon: FileImage },
         {
           title: "管理中心",
@@ -43,6 +45,7 @@ export const sidebarData: SidebarData = {
 export const routeTitles: Record<string, string> = {
   "/dashboard": "工作台",
   "/tasks": "任务列表",
+  "/web-workspace": "Web 工作区",
   "/tasks/new": "新建任务",
   "/workflows": "流程模板",
   "/components": "RPA 组件库",

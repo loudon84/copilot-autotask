@@ -1,7 +1,7 @@
 import { app } from "./app";
-import { browser } from "./browser";
 import { shell } from "./shell";
 import { theme } from "./theme";
+import { webWorkspace } from "./web-workspace";
 import { window } from "./window";
 
 export const router = {
@@ -9,5 +9,5 @@ export const router = {
   window,
   app,
   shell,
-  browser,
+  webWorkspace,
 };

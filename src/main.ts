@@ -7,6 +7,7 @@ import {
 } from "electron-devtools-installer";
 import { UpdateSourceType, updateElectronApp } from "update-electron-app";
 import { ipcContext } from "@/ipc/context";
+import { webWorkspaceManager } from "@/ipc/web-workspace/workspace-manager";
 import { IPC_CHANNELS, inDevelopment } from "./constants";
 import { getBasePath } from "./utils/path";
 
@@ -14,8 +15,8 @@ function createWindow() {
   const basePath = getBasePath();
   const preload = path.join(basePath, "preload.js");
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1280,
+    height: 800,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -29,6 +30,7 @@ function createWindow() {
       process.platform === "darwin" ? { x: 5, y: 5 } : undefined,
   });
   ipcContext.setMainWindow(mainWindow);
+  webWorkspaceManager.setMainWindow(mainWindow);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);

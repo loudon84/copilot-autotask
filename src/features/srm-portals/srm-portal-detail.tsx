@@ -8,9 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MockLoading } from "@/components/common/mock-loading";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoginStateBadge } from "@/components/business/login-state-badge";
-import { BrowserSessionStatusBadge } from "@/components/business/browser-session-status-badge";
 import { PortalActions } from "@/components/business/portal-actions";
 import { mockApi } from "@/services/mock-api";
+
+const openModeLabels = {
+  webcontents: "内置 Web 工作区",
+  system_browser: "系统浏览器",
+} as const;
 
 export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
   const [tab, setTab] = useState("basic");
@@ -19,17 +23,9 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
     queryKey: ["srm-portal", portalId],
     queryFn: () => mockApi.getSrmPortalById(portalId),
   });
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["browser-sessions"],
-    queryFn: mockApi.getBrowserSessions,
-  });
 
   if (isLoading) return <MockLoading />;
   if (!portal) return <EmptyState title="门户不存在" />;
-
-  const activeSession = sessions.find(
-    (s) => s.portalId === portal.id && (s.status === "OPENED" || s.status === "ATTACHED")
-  );
 
   return (
     <div className="space-y-4">
@@ -47,7 +43,7 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
           <TabsTrigger value="login">登录配置</TabsTrigger>
           <TabsTrigger value="locators">页面定位器</TabsTrigger>
           <TabsTrigger value="mapping">字段映射</TabsTrigger>
-          <TabsTrigger value="profile">浏览器 Profile</TabsTrigger>
+          <TabsTrigger value="session">Session 配置</TabsTrigger>
           <TabsTrigger value="test">测试记录</TabsTrigger>
         </TabsList>
 
@@ -58,8 +54,9 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
               <Field label="门户名称" value={portal.name} />
               <Field label="门户 URL" value={portal.url} />
               <Field label="登录方式" value={portal.loginType} />
-              <Field label="浏览器类型" value={portal.browserType} />
-              <Field label="运行模式" value={portal.runMode} />
+              <Field label="客户端打开方式" value={openModeLabels[portal.clientOpenMode]} />
+              <Field label="Session 分区" value={portal.clientSessionPartition} />
+              <Field label="服务器 RPA Profile" value={portal.serverRpaProfileId ?? "-"} />
               <div>
                 <Label className="text-muted-foreground">状态</Label>
                 <div className="mt-1">
@@ -113,12 +110,12 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="profile">
+        <TabsContent value="session">
           <Card>
             <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
-              <Field label="Profile ID" value={portal.profileId} />
-              <Field label="Profile Path" value={portal.profilePath} />
-              <Field label="浏览器类型" value={portal.browserType} />
+              <Field label="Session 分区" value={portal.clientSessionPartition} />
+              <Field label="客户端打开方式" value={openModeLabels[portal.clientOpenMode]} />
+              <Field label="服务器 RPA Profile" value={portal.serverRpaProfileId ?? "-"} />
               <Field label="最近打开时间" value={portal.lastOpenedAt ?? "-"} />
               <div>
                 <Label className="text-muted-foreground">登录态</Label>
@@ -126,21 +123,6 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
                   <LoginStateBadge state={portal.loginState} />
                 </div>
               </div>
-              <div>
-                <Label className="text-muted-foreground">当前会话状态</Label>
-                <div className="mt-1">
-                  {activeSession ? (
-                    <BrowserSessionStatusBadge status={activeSession.status} />
-                  ) : (
-                    <span className="text-sm text-muted-foreground">无活跃会话</span>
-                  )}
-                </div>
-              </div>
-              <Field label="CDP Endpoint" value={activeSession?.cdpEndpoint ?? "-"} />
-              <Field
-                label="Profile 占用状态"
-                value={activeSession ? `占用中 (${activeSession.id})` : "空闲"}
-              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -149,7 +131,7 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
           <Card>
             <CardContent className="pt-4">
               <p className="text-sm text-muted-foreground">
-                Mock 测试记录：点击【测试登录】可打开登录页进行验证。
+                Mock 测试记录：点击【测试打开】可在 Web 工作区中打开登录页进行验证。
               </p>
             </CardContent>
           </Card>

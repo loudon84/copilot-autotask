@@ -15,6 +15,7 @@ import { Route as ComponentsRouteImport } from './routes/components'
 import { Route as ArtifactsRouteImport } from './routes/artifacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkflowsIndexRouteImport } from './routes/workflows/index'
+import { Route as WebWorkspaceIndexRouteImport } from './routes/web-workspace/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks/index'
 import { Route as SrmPortalsIndexRouteImport } from './routes/srm-portals/index'
 import { Route as RunsIndexRouteImport } from './routes/runs/index'
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
 const WorkflowsIndexRoute = WorkflowsIndexRouteImport.update({
   id: '/workflows/',
   path: '/workflows/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebWorkspaceIndexRoute = WebWorkspaceIndexRouteImport.update({
+  id: '/web-workspace/',
+  path: '/web-workspace/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TasksIndexRoute = TasksIndexRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/runs/': typeof RunsIndexRoute
   '/srm-portals/': typeof SrmPortalsIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/web-workspace/': typeof WebWorkspaceIndexRoute
   '/workflows/': typeof WorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/runs': typeof RunsIndexRoute
   '/srm-portals': typeof SrmPortalsIndexRoute
   '/tasks': typeof TasksIndexRoute
+  '/web-workspace': typeof WebWorkspaceIndexRoute
   '/workflows': typeof WorkflowsIndexRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/runs/': typeof RunsIndexRoute
   '/srm-portals/': typeof SrmPortalsIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/web-workspace/': typeof WebWorkspaceIndexRoute
   '/workflows/': typeof WorkflowsIndexRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/runs/'
     | '/srm-portals/'
     | '/tasks/'
+    | '/web-workspace/'
     | '/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/runs'
     | '/srm-portals'
     | '/tasks'
+    | '/web-workspace'
     | '/workflows'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/runs/'
     | '/srm-portals/'
     | '/tasks/'
+    | '/web-workspace/'
     | '/workflows/'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   RunsIndexRoute: typeof RunsIndexRoute
   SrmPortalsIndexRoute: typeof SrmPortalsIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
+  WebWorkspaceIndexRoute: typeof WebWorkspaceIndexRoute
   WorkflowsIndexRoute: typeof WorkflowsIndexRoute
 }
 
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/workflows'
       fullPath: '/workflows/'
       preLoaderRoute: typeof WorkflowsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/web-workspace/': {
+      id: '/web-workspace/'
+      path: '/web-workspace'
+      fullPath: '/web-workspace/'
+      preLoaderRoute: typeof WebWorkspaceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tasks/': {
@@ -329,6 +349,7 @@ const rootRouteChildren: RootRouteChildren = {
   RunsIndexRoute: RunsIndexRoute,
   SrmPortalsIndexRoute: SrmPortalsIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
+  WebWorkspaceIndexRoute: WebWorkspaceIndexRoute,
   WorkflowsIndexRoute: WorkflowsIndexRoute,
 }
 export const routeTree = rootRouteImport

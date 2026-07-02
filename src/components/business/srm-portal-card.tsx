@@ -3,6 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Globe } from "lucide-react";
 
+const openModeLabels = {
+  webcontents: "内置 Web",
+  system_browser: "系统浏览器",
+} as const;
+
 export function SrmPortalCard({ portal }: { portal: SRMPortal }) {
   return (
     <Card>
@@ -22,8 +27,7 @@ export function SrmPortalCard({ portal }: { portal: SRMPortal }) {
         </p>
         <div className="flex gap-2 text-xs">
           <Badge variant="outline">{portal.loginType}</Badge>
-          <Badge variant="outline">{portal.browserType}</Badge>
-          <Badge variant="outline">{portal.runMode}</Badge>
+          <Badge variant="outline">{openModeLabels[portal.clientOpenMode]}</Badge>
         </div>
       </CardContent>
     </Card>

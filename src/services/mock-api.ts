@@ -10,15 +10,13 @@ import auditLogsData from "@/mock/audit-logs.json";
 import { mergeTasks, useTaskStore } from "@/stores/task-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import {
-  allocateCdpPort,
-  createSessionId,
-  getBrowserSessionsFromStore,
-  getHumanCheckpointsFromStore,
-  mergeCheckpoints,
-  mergeSessions,
-  useBrowserStore,
-} from "@/stores/browser-store";
+  getHumanActionById,
+  getHumanActionByTaskId,
+  getHumanActionsFromStore,
+  useHumanActionStore,
+} from "@/stores/human-action-store";
 import type { AutomationTask, AutomationTaskStatus } from "@/types/automation-task";
+import type { HumanAction } from "@/types/human-action";
 import type { WorkflowTemplate } from "@/types/workflow";
 import type { TaskRun } from "@/types/task-run";
 import type { SRMPortal } from "@/types/srm-portal";
@@ -28,12 +26,6 @@ import type { DashboardData } from "@/types/dashboard";
 import type { AppSettings } from "@/types/settings";
 import type { RpaComponent } from "@/types/rpa-component";
 import type { AuditLog } from "@/types/audit-log";
-import type {
-  BrowserConfig,
-  BrowserSession,
-  DetectedBrowser,
-  HumanCheckpoint,
-} from "@/types/browser";
 
 function getDelay(): number {
   return useSettingsStore.getState().settings.mockDelayMs;
@@ -69,13 +61,10 @@ function findPortalById(portalId: string): SRMPortal | undefined {
 }
 
 function findPortalByTask(task: AutomationTask): SRMPortal | undefined {
+  if (task.portalId) {
+    return findPortalById(task.portalId);
+  }
   return getPortals().find((p) => p.name === task.srmPortalName);
-}
-
-function getActiveSessionForPortal(portalId: string): BrowserSession | undefined {
-  return getBrowserSessionsFromStore().find(
-    (s) => s.portalId === portalId && (s.status === "OPENED" || s.status === "ATTACHED")
-  );
 }
 
 function appendAuditLog(entry: Omit<AuditLog, "id">) {
@@ -201,195 +190,52 @@ export const mockApi = {
     return delay({ tasks, workflows, portals, runs });
   },
 
-  getBrowserConfig: async (): Promise<BrowserConfig> =>
-    delay(useBrowserStore.getState().config),
+  getHumanActions: async (): Promise<HumanAction[]> =>
+    delay(getHumanActionsFromStore()),
 
-  updateBrowserConfig: async (patch: Partial<BrowserConfig>): Promise<BrowserConfig> => {
-    useBrowserStore.getState().updateConfig(patch);
-    return delay(useBrowserStore.getState().config);
-  },
+  getHumanAction: async (taskId: string): Promise<HumanAction | undefined> =>
+    delay(getHumanActionByTaskId(taskId)),
 
-  detectBrowsers: async (): Promise<{ items: DetectedBrowser[] }> =>
-    delay({
-      items: [
-        {
-          browserType: "chrome",
-          name: "Google Chrome",
-          executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-          available: true,
-          version: "unknown",
-        },
-        {
-          browserType: "edge",
-          name: "Microsoft Edge",
-          executablePath: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-          available: true,
-          version: "unknown",
-        },
-      ],
-    }),
+  getHumanActionById: async (id: string): Promise<HumanAction | undefined> =>
+    delay(getHumanActionById(id)),
 
-  getBrowserSessions: async (): Promise<BrowserSession[]> =>
-    delay(getBrowserSessionsFromStore()),
-
-  getBrowserSessionById: async (sessionId: string): Promise<BrowserSession | undefined> =>
-    delay(getBrowserSessionsFromStore().find((s) => s.id === sessionId)),
-
-  getSessionsByPortalId: async (portalId: string): Promise<BrowserSession[]> =>
-    delay(getBrowserSessionsFromStore().filter((s) => s.portalId === portalId)),
-
-  openPortalMock: async (input: {
-    portalId: string;
-    targetUrl?: string;
-    source?: string;
-  }): Promise<BrowserSession> => {
-    const portal = findPortalById(input.portalId);
-    if (!portal) throw new Error("门户不存在");
-    if (portal.status === "disabled") throw new Error("门户已禁用");
-
-    const existing = getActiveSessionForPortal(input.portalId);
-    if (existing) {
-      useBrowserStore.getState().updateSession(existing.id, { lastActiveAt: now() });
-      return delay(getBrowserSessionsFromStore().find((s) => s.id === existing.id)!);
-    }
-
-    const cdpPort = allocateCdpPort();
-    const session: BrowserSession = {
-      id: createSessionId(),
-      portalId: portal.id,
-      portalName: portal.name,
-      customerName: portal.customerName,
-      profileId: portal.profileId,
-      profilePath: portal.profilePath,
-      browserType: portal.browserType,
-      launchMode: "manual_open",
-      pid: Math.floor(28000 + Math.random() * 1000),
-      cdpPort,
-      cdpEndpoint: `http://127.0.0.1:${cdpPort}`,
-      targetUrl: input.targetUrl ?? portal.quickOpenUrl ?? portal.url,
-      status: "OPENED",
-      startedAt: now(),
-      lastActiveAt: now(),
-    };
-
-    useBrowserStore.getState().addSession(session);
-    appendAuditLog({
-      taskId: "",
-      action: "browser.open_portal",
-      operator: "当前用户",
-      detail: `快速打开 SRM: ${portal.name}`,
-      createdAt: now(),
-    });
-
-    return delay(session);
-  },
-
-  openHumanTaskMock: async (input: { taskId: string }): Promise<{
-    session: BrowserSession;
-    taskStatus: AutomationTaskStatus;
-    checkpoint: HumanCheckpoint;
-  }> => {
+  markHumanOpened: async (input: {
+    taskId: string;
+    humanActionId: string;
+    openedBy?: string;
+    clientTabId?: string;
+  }): Promise<{ taskId: string; status: AutomationTaskStatus }> => {
     const task = getTasks().find((t) => t.id === input.taskId);
     if (!task) throw new Error("任务不存在");
     if (task.status !== "WAITING_HUMAN" && task.status !== "HUMAN_OPERATING") {
-      throw new Error("任务状态不支持快速打开");
+      throw new Error("任务状态不支持打开人工处理");
     }
 
-    const checkpoint = getHumanCheckpointsFromStore().find((c) => c.taskId === input.taskId);
-    if (!checkpoint) throw new Error("未找到人工检查点");
+    const action = getHumanActionById(input.humanActionId);
+    if (!action) throw new Error("未找到人工动作");
 
-    const portal = findPortalById(checkpoint.portalId) ?? findPortalByTask(task);
-    if (!portal) throw new Error("未找到关联 SRM 门户");
-
-    let session = getActiveSessionForPortal(portal.id);
-    if (!session) {
-      const cdpPort = allocateCdpPort();
-      session = {
-        id: createSessionId(),
-        portalId: portal.id,
-        portalName: portal.name,
-        customerName: portal.customerName,
-        taskId: task.id,
-        profileId: portal.profileId,
-        profilePath: portal.profilePath,
-        browserType: portal.browserType,
-        launchMode: "manual_open",
-        pid: Math.floor(28000 + Math.random() * 1000),
-        cdpPort,
-        cdpEndpoint: `http://127.0.0.1:${cdpPort}`,
-        targetUrl: checkpoint.targetUrl,
-        status: "OPENED",
-        startedAt: now(),
-        lastActiveAt: now(),
-      };
-      useBrowserStore.getState().addSession(session);
-    } else {
-      useBrowserStore.getState().updateSession(session.id, {
-        taskId: task.id,
-        targetUrl: checkpoint.targetUrl,
-        lastActiveAt: now(),
-      });
-      session = getBrowserSessionsFromStore().find((s) => s.id === session!.id)!;
-    }
-
-    useBrowserStore.getState().updateCheckpoint(checkpoint.id, {
+    const openedAt = now();
+    useHumanActionStore.getState().updateHumanAction(input.humanActionId, {
       status: "OPENED",
-      openedSessionId: session.id,
-      openedAt: now(),
+      openedAt,
     });
     useTaskStore.getState().updateTaskStatus(input.taskId, "HUMAN_OPERATING");
 
     appendAuditLog({
       taskId: input.taskId,
-      action: "browser.open_human_task",
-      operator: "当前用户",
-      detail: `快速打开待人工任务: ${task.title}`,
-      createdAt: now(),
+      action: "human_action.opened",
+      operator: input.openedBy ?? "当前用户",
+      detail: `打开人工处理页面，Tab: ${input.clientTabId ?? "-"}`,
+      createdAt: openedAt,
     });
 
-    return delay({
-      session,
-      taskStatus: "HUMAN_OPERATING",
-      checkpoint: mergeCheckpoints(
-        useBrowserStore.getState().checkpoints,
-        useBrowserStore.getState().checkpointOverrides
-      ).find((c) => c.id === checkpoint.id)!,
-    });
+    return delay({ taskId: input.taskId, status: "HUMAN_OPERATING" });
   },
 
-  closeSessionMock: async (sessionId: string): Promise<void> => {
-    useBrowserStore.getState().closeSession(sessionId);
-    appendAuditLog({
-      taskId: "",
-      action: "browser.close_session",
-      operator: "当前用户",
-      detail: `关闭浏览器会话: ${sessionId}`,
-      createdAt: now(),
-    });
-    return delay(undefined);
-  },
-
-  resetPortalProfileMock: async (portalId: string): Promise<void> => {
-    useBrowserStore.getState().resetPortalProfile(portalId);
-    appendAuditLog({
-      taskId: "",
-      action: "browser.reset_profile",
-      operator: "当前用户",
-      detail: `重置 Profile: ${portalId}`,
-      createdAt: now(),
-    });
-    return delay(undefined);
-  },
-
-  getHumanCheckpoints: async (): Promise<HumanCheckpoint[]> =>
-    delay(getHumanCheckpointsFromStore()),
-
-  getHumanCheckpointByTaskId: async (taskId: string): Promise<HumanCheckpoint | undefined> =>
-    delay(getHumanCheckpointsFromStore().find((c) => c.taskId === taskId)),
-
-  confirmHumanTaskMock: async (input: {
+  confirmHumanAction: async (input: {
     taskId: string;
-    checkpointId: string;
+    humanActionId: string;
+    confirmedBy?: string;
     note?: string;
   }): Promise<{
     taskId: string;
@@ -408,17 +254,17 @@ export const mockApi = {
       progress: 100,
       currentStep: "人工确认完成",
     });
-    useBrowserStore.getState().updateCheckpoint(input.checkpointId, {
+    useHumanActionStore.getState().updateHumanAction(input.humanActionId, {
       status: "CONFIRMED",
       confirmedAt,
-      confirmedBy: "当前用户",
+      confirmedBy: input.confirmedBy ?? "当前用户",
       note: input.note,
     });
 
     appendAuditLog({
       taskId: input.taskId,
       action: "task.human_confirm",
-      operator: "当前用户",
+      operator: input.confirmedBy ?? "当前用户",
       detail: input.note ? `人工确认完成: ${input.note}` : "人工确认完成",
       createdAt: confirmedAt,
     });

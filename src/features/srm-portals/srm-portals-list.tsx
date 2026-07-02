@@ -9,9 +9,13 @@ import { LoginStateBadge } from "@/components/business/login-state-badge";
 import { PortalActions } from "@/components/business/portal-actions";
 import { mockApi } from "@/services/mock-api";
 import type { SRMPortal } from "@/types/srm-portal";
-import type { BrowserSession } from "@/types/browser";
 
-function buildColumns(sessions: BrowserSession[]): ColumnDef<SRMPortal>[] {
+const openModeLabels: Record<SRMPortal["clientOpenMode"], string> = {
+  webcontents: "内置 Web",
+  system_browser: "系统浏览器",
+};
+
+function buildColumns(): ColumnDef<SRMPortal>[] {
   return [
     { accessorKey: "customerName", header: "客户名称" },
     {
@@ -25,21 +29,29 @@ function buildColumns(sessions: BrowserSession[]): ColumnDef<SRMPortal>[] {
     },
     { accessorKey: "url", header: "URL" },
     { accessorKey: "loginType", header: "登录方式" },
-    { accessorKey: "browserType", header: "浏览器" },
-    { accessorKey: "runMode", header: "运行模式" },
+    {
+      accessorKey: "clientOpenMode",
+      header: "客户端打开方式",
+      cell: ({ row }) => openModeLabels[row.original.clientOpenMode],
+    },
+    {
+      accessorKey: "clientSessionPartition",
+      header: "Session 分区",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+          {row.original.clientSessionPartition}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "serverRpaProfileId",
+      header: "服务器 RPA Profile",
+      cell: ({ row }) => row.original.serverRpaProfileId ?? "-",
+    },
     {
       accessorKey: "loginState",
       header: "登录态",
       cell: ({ row }) => <LoginStateBadge state={row.original.loginState} />,
-    },
-    {
-      id: "profile",
-      header: "Profile",
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px] inline-block">
-          {row.original.profileId}
-        </span>
-      ),
     },
     {
       accessorKey: "lastOpenedAt",
@@ -59,42 +71,24 @@ function buildColumns(sessions: BrowserSession[]): ColumnDef<SRMPortal>[] {
     {
       id: "actions",
       header: "操作",
-      cell: ({ row }) => {
-        const activeSession = sessions.find(
-          (s) => s.portalId === row.original.id && (s.status === "OPENED" || s.status === "ATTACHED")
-        );
-        return (
-          <div className="flex items-center gap-1">
-            {activeSession && (
-              <Badge variant="outline" className="text-xs border-green-500/30 text-green-700">
-                会话中
-              </Badge>
-            )}
-            <PortalActions portal={row.original} compact />
-          </div>
-        );
-      },
+      cell: ({ row }) => <PortalActions portal={row.original} compact />,
     },
   ];
 }
 
 export function SrmPortalsListPage() {
-  const { data: portals = [], isLoading: portalsLoading } = useQuery({
+  const { data: portals = [], isLoading } = useQuery({
     queryKey: ["srm-portals"],
     queryFn: mockApi.getSrmPortals,
   });
-  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
-    queryKey: ["browser-sessions"],
-    queryFn: mockApi.getBrowserSessions,
-  });
 
-  if (portalsLoading || sessionsLoading) return <MockLoading />;
+  if (isLoading) return <MockLoading />;
 
-  const columns = buildColumns(sessions);
+  const columns = buildColumns();
 
   return (
     <div className="space-y-4">
-      <PageHeader title="客户 SRM" description="管理客户 SRM 门户配置，支持快速打开与 Profile 管理" />
+      <PageHeader title="客户 SRM" description="管理客户 SRM 门户配置，支持快速打开与 Session 管理" />
       <DataTable columns={columns} data={portals} />
     </div>
   );

@@ -1,3 +1,5 @@
+import type { HumanAction } from "@/types/human-action";
+
 export type AutomationTaskStatus =
   | "DRAFT"
   | "READY"
@@ -5,6 +7,7 @@ export type AutomationTaskStatus =
   | "RUNNING"
   | "WAITING_HUMAN"
   | "HUMAN_OPERATING"
+  | "HUMAN_CONFIRMED"
   | "WAITING_RETRY"
   | "SUCCESS"
   | "SUCCESS_MANUAL"
@@ -18,16 +21,27 @@ export interface AutomationTask {
   id: string;
   title: string;
   taskType: string;
+
+  customerId?: string;
   customerName: string;
+
+  portalId?: string;
   srmPortalName: string;
+
   workflowTemplateId: string;
   workflowTemplateName: string;
+
   status: AutomationTaskStatus;
   priority: TaskPriority;
   owner: string;
+
   input: Record<string, unknown>;
   currentStep?: string;
   progress: number;
+
+  humanActionId?: string;
+  humanAction?: HumanAction;
+
   createdAt: string;
   updatedAt: string;
 }

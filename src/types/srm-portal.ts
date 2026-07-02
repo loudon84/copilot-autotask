@@ -1,4 +1,4 @@
-import type { BrowserType } from "@/types/browser";
+import type { ClientOpenMode } from "@/types/web-tab";
 
 export type PortalLoginState = "unknown" | "valid" | "expired";
 
@@ -7,14 +7,14 @@ export interface SRMPortal {
   customerName: string;
   name: string;
   url: string;
+
   loginType: "username_password" | "sso" | "manual";
-  browserType: BrowserType;
-  runMode: "headed" | "headless";
   status: "enabled" | "disabled";
 
-  profileId: string;
-  profilePath: string;
-  quickOpenUrl?: string;
+  clientOpenMode: ClientOpenMode;
+  clientSessionPartition: string;
+
+  serverRpaProfileId?: string;
 
   loginState: PortalLoginState;
   lastOpenedAt?: string;
@@ -24,6 +24,9 @@ export interface SRMPortal {
   fieldMapping?: Record<string, string>;
   mfaPolicy?: string;
   loginPageUrl?: string;
+  description?: string;
+  tags?: string[];
+
   createdAt: string;
   updatedAt: string;
 }
