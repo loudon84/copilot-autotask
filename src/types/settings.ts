@@ -1,5 +1,7 @@
+import type { BrowserType } from "@/types/browser";
+
 export interface AppSettings {
-  defaultBrowserType: "chromium" | "firefox" | "webkit";
+  defaultBrowserType: BrowserType;
   defaultRunMode: "headed" | "headless";
   saveScreenshots: boolean;
   enableTrace: boolean;
@@ -7,4 +9,15 @@ export interface AppSettings {
   logLevel: "DEBUG" | "INFO" | "WARN" | "ERROR";
   themeMode: "light" | "dark" | "system";
   mockDelayMs: number;
+
+  chromeExecutablePath?: string;
+  edgeExecutablePath?: string;
+  chromiumExecutablePath?: string;
+  profileRootPath: string;
+  downloadsRootPath: string;
+  remoteDebuggingAddress: "127.0.0.1";
+  minPort: number;
+  maxPort: number;
+  allowResetProfile: boolean;
+  allowOpenProfileFolder: boolean;
 }

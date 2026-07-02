@@ -4,8 +4,10 @@ export type AutomationTaskStatus =
   | "QUEUED"
   | "RUNNING"
   | "WAITING_HUMAN"
+  | "HUMAN_OPERATING"
   | "WAITING_RETRY"
   | "SUCCESS"
+  | "SUCCESS_MANUAL"
   | "PARTIAL_SUCCESS"
   | "FAILED"
   | "CANCELLED";

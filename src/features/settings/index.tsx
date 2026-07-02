@@ -8,12 +8,14 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/common/page-header";
 import { MockLoading } from "@/components/common/mock-loading";
 import { setTheme } from "@/actions/theme";
 import { mockApi } from "@/services/mock-api";
 import type { AppSettings } from "@/types/settings";
 import type { ThemeMode } from "@/types/theme-mode";
+import { RefreshCw } from "lucide-react";
 
 export function SettingsPage() {
   const [tab, setTab] = useState("basic");
@@ -21,6 +23,11 @@ export function SettingsPage() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings"],
     queryFn: mockApi.getSettings,
+  });
+
+  const { data: detectedBrowsers } = useQuery({
+    queryKey: ["detect-browsers"],
+    queryFn: mockApi.detectBrowsers,
   });
 
   const updateMutation = useMutation({
@@ -37,6 +44,21 @@ export function SettingsPage() {
   const handleThemeChange = async (theme: ThemeMode) => {
     await setTheme(theme);
     update({ themeMode: theme });
+  };
+
+  const handleDetectBrowsers = async () => {
+    const result = await mockApi.detectBrowsers();
+    const chrome = result.items.find((b) => b.browserType === "chrome");
+    const edge = result.items.find((b) => b.browserType === "edge");
+    const patch: Partial<AppSettings> = {};
+    if (chrome?.available) patch.chromeExecutablePath = chrome.executablePath;
+    if (edge?.available) patch.edgeExecutablePath = edge.executablePath;
+    if (Object.keys(patch).length > 0) {
+      update(patch);
+      toast.success("浏览器路径检测完成");
+    } else {
+      toast.warning("未检测到可用浏览器");
+    }
   };
 
   return (
@@ -70,16 +92,50 @@ export function SettingsPage() {
 
         <TabsContent value="browser">
           <SettingsCard title="浏览器设置">
-            <Field label="默认浏览器类型">
+            <div className="flex items-center justify-between">
+              <Label>自动检测浏览器</Label>
+              <Button variant="outline" size="sm" onClick={handleDetectBrowsers}>
+                <RefreshCw className="mr-2 h-4 w-4" /> 检测
+              </Button>
+            </div>
+
+            {detectedBrowsers?.items && (
+              <div className="flex flex-wrap gap-2">
+                {detectedBrowsers.items.map((b) => (
+                  <Badge key={b.browserType} variant={b.available ? "default" : "secondary"}>
+                    {b.name}: {b.available ? "可用" : "不可用"}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <Field label="默认浏览器">
               <Select value={settings.defaultBrowserType} onValueChange={(v) => update({ defaultBrowserType: v as AppSettings["defaultBrowserType"] })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="chrome">Chrome</SelectItem>
+                  <SelectItem value="edge">Edge</SelectItem>
                   <SelectItem value="chromium">Chromium</SelectItem>
-                  <SelectItem value="firefox">Firefox</SelectItem>
-                  <SelectItem value="webkit">WebKit</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
+
+            <Field label="Chrome 路径">
+              <Input
+                value={settings.chromeExecutablePath ?? ""}
+                onChange={(e) => update({ chromeExecutablePath: e.target.value })}
+                placeholder="自动检测或手动输入"
+              />
+            </Field>
+
+            <Field label="Edge 路径">
+              <Input
+                value={settings.edgeExecutablePath ?? ""}
+                onChange={(e) => update({ edgeExecutablePath: e.target.value })}
+                placeholder="自动检测或手动输入"
+              />
+            </Field>
+
             <Field label="默认运行模式">
               <Select value={settings.defaultRunMode} onValueChange={(v) => update({ defaultRunMode: v as AppSettings["defaultRunMode"] })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -89,6 +145,48 @@ export function SettingsPage() {
                 </SelectContent>
               </Select>
             </Field>
+
+            <Field label="Profile 根目录">
+              <Input
+                value={settings.profileRootPath}
+                onChange={(e) => update({ profileRootPath: e.target.value })}
+              />
+            </Field>
+
+            <Field label="下载目录">
+              <Input
+                value={settings.downloadsRootPath}
+                onChange={(e) => update({ downloadsRootPath: e.target.value })}
+              />
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="CDP 端口最小值">
+                <Input
+                  type="number"
+                  value={settings.minPort}
+                  onChange={(e) => update({ minPort: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="CDP 端口最大值">
+                <Input
+                  type="number"
+                  value={settings.maxPort}
+                  onChange={(e) => update({ maxPort: Number(e.target.value) })}
+                />
+              </Field>
+            </div>
+
+            <SwitchField
+              label="允许重置 Profile"
+              checked={settings.allowResetProfile}
+              onCheckedChange={(v) => update({ allowResetProfile: v })}
+            />
+            <SwitchField
+              label="允许打开 Profile 目录"
+              checked={settings.allowOpenProfileFolder}
+              onCheckedChange={(v) => update({ allowOpenProfileFolder: v })}
+            />
           </SettingsCard>
         </TabsContent>
 

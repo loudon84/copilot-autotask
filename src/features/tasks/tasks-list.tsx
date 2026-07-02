@@ -22,8 +22,10 @@ const statusTabs: { value: string; label: string }[] = [
   { value: "all", label: "全部" },
   { value: "RUNNING", label: "执行中" },
   { value: "WAITING_HUMAN", label: "待人工" },
+  { value: "HUMAN_OPERATING", label: "人工处理中" },
   { value: "FAILED", label: "失败" },
   { value: "SUCCESS", label: "成功" },
+  { value: "SUCCESS_MANUAL", label: "人工完成" },
   { value: "READY", label: "待执行" },
 ];
 
