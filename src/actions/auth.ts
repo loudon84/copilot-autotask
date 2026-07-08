@@ -17,10 +17,10 @@ export function saveAuthEndpointConfig(
 }
 
 export function login(
-  email: string,
+  account: string,
   password: string
 ): Promise<PublicAuthState> {
-  return ipc.client.auth.login({ email, password });
+  return ipc.client.auth.login({ account, password });
 }
 
 export function logout(): Promise<PublicAuthState> {

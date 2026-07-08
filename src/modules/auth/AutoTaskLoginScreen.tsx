@@ -16,7 +16,10 @@ import type { AutoTaskEndpointConfig } from "@/types/endpoint-config";
 import { defaultAutoTaskEndpointConfig } from "@/types/endpoint-config";
 import { EndpointConfigPanel } from "./components/EndpointConfigPanel";
 import { LoginForm } from "./components/LoginForm";
-import { getLastLoginEmail, saveLastLoginEmail } from "./last-login-email";
+import {
+  getLastLoginAccount,
+  saveLastLoginAccount,
+} from "./last-login-account";
 
 interface AutoTaskLoginScreenProps {
   onLoginSuccess: () => void;
@@ -37,10 +40,10 @@ export function AutoTaskLoginScreen({
       });
   }, []);
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (account: string, password: string) => {
     await saveAuthEndpointConfig(endpointConfig);
-    await authLogin(email, password);
-    saveLastLoginEmail(email);
+    await authLogin(account, password);
+    saveLastLoginAccount(account);
     onLoginSuccess();
   };
 
@@ -56,7 +59,7 @@ export function AutoTaskLoginScreen({
         </CardHeader>
         <CardContent className="space-y-4">
           <LoginForm
-            defaultEmail={getLastLoginEmail()}
+            defaultAccount={getLastLoginAccount()}
             onSubmit={handleLogin}
           />
           <EndpointConfigPanel

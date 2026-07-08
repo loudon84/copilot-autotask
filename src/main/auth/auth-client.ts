@@ -61,15 +61,16 @@ function getConfig(): AutoTaskEndpointConfig {
 }
 
 export async function loginWithCredentials(
-  email: string,
+  account: string,
   password: string
 ): Promise<StoredAuthSession> {
+  debugger;
   const config = getConfig();
   const tokens = await authFetch<AuthTokenResponse>(
     buildAuthUrl(config, "/account-login"),
     {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ account, password }),
     }
   );
 

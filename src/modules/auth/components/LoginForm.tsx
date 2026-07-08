@@ -3,14 +3,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { debug } from "node:console";
 
 interface LoginFormProps {
-  defaultEmail?: string;
-  onSubmit: (email: string, password: string) => Promise<void>;
+  defaultAccount?: string;
+  onSubmit: (account: string, password: string) => Promise<void>;
 }
 
-export function LoginForm({ defaultEmail = "", onSubmit }: LoginFormProps) {
-  const [email, setEmail] = useState(defaultEmail);
+export function LoginForm({
+  defaultAccount = "",
+  onSubmit,
+}: LoginFormProps) {
+  const [account, setAccount] = useState(defaultAccount);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +24,7 @@ export function LoginForm({ defaultEmail = "", onSubmit }: LoginFormProps) {
     setError(null);
     setLoading(true);
     try {
-      await onSubmit(email, password);
+      await onSubmit(account, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
     } finally {
@@ -36,15 +40,15 @@ export function LoginForm({ defaultEmail = "", onSubmit }: LoginFormProps) {
         </p>
       )}
       <div className="space-y-2">
-        <Label htmlFor="email">邮箱</Label>
+        <Label htmlFor="account">账号</Label>
         <Input
-          autoComplete="email"
-          id="email"
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
+          autoComplete="username"
+          id="account"
+          onChange={(e) => setAccount(e.target.value)}
+          placeholder="请输入账号"
           required
-          type="email"
-          value={email}
+          type="text"
+          value={account}
         />
       </div>
       <div className="space-y-2">

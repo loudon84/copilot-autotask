@@ -9,6 +9,6 @@ export const endpointConfigSchema = z.object({
 });
 
 export const loginInputSchema = z.object({
-  email: z.string().email(),
+  account: z.string().min(1),
   password: z.string().min(1),
 });
