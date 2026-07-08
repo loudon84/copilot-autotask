@@ -1,6 +1,19 @@
+import { Link, useNavigate } from "@tanstack/react-router";
+import {
+  CheckCircle,
+  ExternalLink,
+  Eye,
+  MoreHorizontal,
+  Pause,
+  Play,
+  RotateCcw,
+  UserCheck,
+  X,
+} from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import type { AutomationTaskStatus } from "@/types/automation-task";
+import { toast } from "sonner";
+import { openHumanTask } from "@/actions/web-workspace";
+import { HumanConfirmDialog } from "@/components/business/human-checkpoint-panel";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,45 +22,67 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { HumanConfirmDialog } from "@/components/business/human-checkpoint-panel";
-import { MoreHorizontal, Play, Pause, RotateCcw, X, Eye, UserCheck, ExternalLink, CheckCircle } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { toast } from "sonner";
-import { mockApi } from "@/services/mock-api";
-import { useQuery } from "@tanstack/react-query";
-import { openHumanTask } from "@/actions/web-workspace";
+import {
+  useCancelTask,
+  useMarkHumanOpened,
+  useRetryTask,
+  useStartTask,
+  useUpdateTaskStatus,
+} from "@/features/tasks/api/use-task-mutations";
+import { useHumanAction } from "@/features/tasks/api/use-tasks";
+import { autotaskApi } from "@/services/autotask-api";
+import type { AutomationTaskStatus } from "@/types/automation-task";
 
-type TaskActionsProps = {
-  taskId: string;
-  status: AutomationTaskStatus;
+interface TaskActionsProps {
   compact?: boolean;
   onUpdate?: () => void;
-};
+  status: AutomationTaskStatus;
+  taskId: string;
+}
 
-export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsProps) {
+export function TaskActions({
+  taskId,
+  status,
+  compact,
+  onUpdate,
+}: TaskActionsProps) {
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [opening, setOpening] = useState(false);
 
-  const { data: humanAction } = useQuery({
-    queryKey: ["human-action", taskId],
-    queryFn: () => mockApi.getHumanAction(taskId),
-    enabled: status === "WAITING_HUMAN" || status === "HUMAN_OPERATING",
-  });
+  const startTask = useStartTask();
+  const cancelTask = useCancelTask();
+  const retryTask = useRetryTask();
+  const updateStatus = useUpdateTaskStatus();
+  const markHumanOpened = useMarkHumanOpened();
+
+  const { data: humanAction } = useHumanAction(
+    taskId,
+    status === "WAITING_HUMAN" || status === "HUMAN_OPERATING"
+  );
 
   const handleAction = async (
     action: string,
     newStatus?: AutomationTaskStatus,
     extra?: Record<string, unknown>
   ) => {
-    if (newStatus) {
-      await mockApi.updateTaskStatus(taskId, newStatus);
+    try {
+      if (newStatus === "RUNNING" && status === "READY") {
+        await startTask.mutateAsync(taskId);
+      } else if (newStatus === "QUEUED" && status === "FAILED") {
+        await retryTask.mutateAsync(taskId);
+      } else if (newStatus === "CANCELLED") {
+        await cancelTask.mutateAsync(taskId);
+      } else if (newStatus) {
+        await updateStatus.mutateAsync({ taskId, status: newStatus, extra });
+      } else if (extra) {
+        await autotaskApi.tasks.update(taskId, extra);
+      }
+      toast.success(`操作成功: ${action}`);
+      onUpdate?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
     }
-    if (extra) {
-      await mockApi.updateTask(taskId, extra);
-    }
-    toast.success(`操作成功: ${action}`);
-    onUpdate?.();
   };
 
   const handleOpenHuman = async () => {
@@ -61,8 +96,12 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
         ? `persist:srm:${humanAction.portalId}`
         : `persist:task:${taskId}`;
       if (humanAction.portalId) {
-        const portal = await mockApi.getSrmPortalById(humanAction.portalId);
-        if (portal) sessionPartition = portal.clientSessionPartition;
+        const portal = await autotaskApi.portalAccounts.get(
+          humanAction.portalId
+        );
+        if (portal) {
+          sessionPartition = portal.clientSessionPartition;
+        }
       }
 
       const tab = await openHumanTask({
@@ -74,7 +113,7 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
         sessionPartition,
       });
 
-      await mockApi.markHumanOpened({
+      await markHumanOpened.mutateAsync({
         taskId,
         humanActionId: humanAction.id,
         clientTabId: tab.id,
@@ -95,30 +134,36 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
       <>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button className="h-8 w-8" size="icon" variant="ghost">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link to="/tasks/$taskId" params={{ taskId }}>
+              <Link params={{ taskId }} to="/tasks/$taskId">
                 <Eye className="mr-2 h-4 w-4" /> 查看
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {status === "READY" && (
-              <DropdownMenuItem onClick={() => handleAction("执行", "RUNNING", { progress: 10 })}>
+              <DropdownMenuItem
+                onClick={() =>
+                  handleAction("执行", "RUNNING", { progress: 10 })
+                }
+              >
                 <Play className="mr-2 h-4 w-4" /> 执行
               </DropdownMenuItem>
             )}
             {status === "RUNNING" && (
-              <DropdownMenuItem onClick={() => handleAction("暂停", "WAITING_HUMAN")}>
+              <DropdownMenuItem
+                onClick={() => handleAction("暂停", "WAITING_HUMAN")}
+              >
                 <Pause className="mr-2 h-4 w-4" /> 暂停
               </DropdownMenuItem>
             )}
             {(status === "WAITING_HUMAN" || status === "HUMAN_OPERATING") && (
               <>
-                <DropdownMenuItem onClick={handleOpenHuman} disabled={opening}>
+                <DropdownMenuItem disabled={opening} onClick={handleOpenHuman}>
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {status === "HUMAN_OPERATING" ? "重新打开" : "快速打开"}
                 </DropdownMenuItem>
@@ -132,20 +177,24 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
                 <RotateCcw className="mr-2 h-4 w-4" /> 重试
               </DropdownMenuItem>
             )}
-            {status !== "SUCCESS" && status !== "SUCCESS_MANUAL" && status !== "CANCELLED" && (
-              <DropdownMenuItem onClick={() => handleAction("取消", "CANCELLED")}>
-                <X className="mr-2 h-4 w-4" /> 取消
-              </DropdownMenuItem>
-            )}
+            {status !== "SUCCESS" &&
+              status !== "SUCCESS_MANUAL" &&
+              status !== "CANCELLED" && (
+                <DropdownMenuItem
+                  onClick={() => handleAction("取消", "CANCELLED")}
+                >
+                  <X className="mr-2 h-4 w-4" /> 取消
+                </DropdownMenuItem>
+              )}
           </DropdownMenuContent>
         </DropdownMenu>
         {humanAction && (
           <HumanConfirmDialog
-            open={confirmOpen}
-            onOpenChange={setConfirmOpen}
-            taskId={taskId}
             humanActionId={humanAction.id}
             onConfirmed={onUpdate}
+            onOpenChange={setConfirmOpen}
+            open={confirmOpen}
+            taskId={taskId}
           />
         )}
       </>
@@ -155,26 +204,34 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
   return (
     <>
       <div className="flex flex-wrap gap-1">
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/tasks/$taskId" params={{ taskId }}>
+        <Button asChild size="sm" variant="outline">
+          <Link params={{ taskId }} to="/tasks/$taskId">
             <Eye className="mr-1 h-3 w-3" /> 查看
           </Link>
         </Button>
 
         {status === "READY" && (
-          <Button variant="outline" size="sm" onClick={() => handleAction("执行", "RUNNING", { progress: 10 })}>
+          <Button
+            onClick={() => handleAction("执行", "RUNNING", { progress: 10 })}
+            size="sm"
+            variant="outline"
+          >
             <Play className="mr-1 h-3 w-3" /> 执行
           </Button>
         )}
 
         {status === "RUNNING" && (
           <>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/tasks/$taskId" params={{ taskId }}>
+            <Button asChild size="sm" variant="outline">
+              <Link params={{ taskId }} to="/tasks/$taskId">
                 查看运行
               </Link>
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleAction("人工接管", "WAITING_HUMAN")}>
+            <Button
+              onClick={() => handleAction("人工接管", "WAITING_HUMAN")}
+              size="sm"
+              variant="outline"
+            >
               <UserCheck className="mr-1 h-3 w-3" /> 人工接管
             </Button>
           </>
@@ -182,19 +239,28 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
 
         {(status === "WAITING_HUMAN" || status === "HUMAN_OPERATING") && (
           <>
-            <Button variant="outline" size="sm" onClick={handleOpenHuman} disabled={opening}>
+            <Button
+              disabled={opening}
+              onClick={handleOpenHuman}
+              size="sm"
+              variant="outline"
+            >
               <ExternalLink className="mr-1 h-3 w-3" />
               {status === "HUMAN_OPERATING" ? "重新打开" : "快速打开"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setConfirmOpen(true)}>
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              size="sm"
+              variant="outline"
+            >
               <CheckCircle className="mr-1 h-3 w-3" /> 确认已完成
             </Button>
           </>
         )}
 
         {status === "SUCCESS_MANUAL" && (
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/tasks/$taskId" params={{ taskId }}>
+          <Button asChild size="sm" variant="outline">
+            <Link params={{ taskId }} to="/tasks/$taskId">
               查看记录
             </Link>
           </Button>
@@ -202,29 +268,47 @@ export function TaskActions({ taskId, status, compact, onUpdate }: TaskActionsPr
 
         {status === "FAILED" && (
           <>
-            <Button variant="outline" size="sm" onClick={() => handleAction("重试", "QUEUED")}>
+            <Button
+              onClick={() => handleAction("重试", "QUEUED")}
+              size="sm"
+              variant="outline"
+            >
               <RotateCcw className="mr-1 h-3 w-3" /> 重试
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleAction("标记完成", "SUCCESS_MANUAL", { progress: 100 })}>
+            <Button
+              onClick={() =>
+                handleAction("标记完成", "SUCCESS_MANUAL", { progress: 100 })
+              }
+              size="sm"
+              variant="outline"
+            >
               标记完成
             </Button>
           </>
         )}
 
-        {status !== "SUCCESS" && status !== "SUCCESS_MANUAL" && status !== "CANCELLED" && status !== "WAITING_HUMAN" && status !== "HUMAN_OPERATING" && (
-          <Button variant="outline" size="sm" onClick={() => handleAction("取消", "CANCELLED")}>
-            <X className="mr-1 h-3 w-3" /> 取消
-          </Button>
-        )}
+        {status !== "SUCCESS" &&
+          status !== "SUCCESS_MANUAL" &&
+          status !== "CANCELLED" &&
+          status !== "WAITING_HUMAN" &&
+          status !== "HUMAN_OPERATING" && (
+            <Button
+              onClick={() => handleAction("取消", "CANCELLED")}
+              size="sm"
+              variant="outline"
+            >
+              <X className="mr-1 h-3 w-3" /> 取消
+            </Button>
+          )}
       </div>
 
       {humanAction && (
         <HumanConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          taskId={taskId}
           humanActionId={humanAction.id}
           onConfirmed={onUpdate}
+          onOpenChange={setConfirmOpen}
+          open={confirmOpen}
+          taskId={taskId}
         />
       )}
     </>

@@ -1,19 +1,20 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
-import { DataTable } from "@/components/common/data-table";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
+import { useState } from "react";
+import { listTabs } from "@/actions/web-workspace";
 import { StatusBadge } from "@/components/business/status-badge";
 import { WorkerStatusCard } from "@/components/business/worker-status-card";
-import { listTabs } from "@/actions/web-workspace";
-import { mockApi } from "@/services/mock-api";
+import { DataTable } from "@/components/common/data-table";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWorkers } from "@/features/components/api/use-workers";
+import { useRuns } from "@/features/runs/api/use-runs";
 import type { TaskRun } from "@/types/task-run";
 import type { WebTab } from "@/types/web-tab";
-import { Eye } from "lucide-react";
 
 function buildRunColumns(): ColumnDef<TaskRun>[] {
   return [
@@ -22,7 +23,11 @@ function buildRunColumns(): ColumnDef<TaskRun>[] {
       accessorKey: "taskTitle",
       header: "任务标题",
       cell: ({ row }) => (
-        <Link to="/tasks/$taskId" params={{ taskId: row.original.taskId }} className="hover:underline">
+        <Link
+          className="hover:underline"
+          params={{ taskId: row.original.taskId }}
+          to="/tasks/$taskId"
+        >
           {row.original.taskTitle}
         </Link>
       ),
@@ -38,7 +43,9 @@ function buildRunColumns(): ColumnDef<TaskRun>[] {
       id: "currentStep",
       header: "当前步骤",
       cell: ({ row }) => {
-        const step = row.original.stepRuns.find((s) => s.stepId === row.original.currentStepId);
+        const step = row.original.stepRuns.find(
+          (s) => s.stepId === row.original.currentStepId
+        );
         return step?.stepName ?? "-";
       },
     },
@@ -55,8 +62,8 @@ function buildRunColumns(): ColumnDef<TaskRun>[] {
       id: "actions",
       header: "操作",
       cell: ({ row }) => (
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/runs/$runId" params={{ runId: row.original.id }}>
+        <Button asChild size="sm" variant="ghost">
+          <Link params={{ runId: row.original.id }} to="/runs/$runId">
             <Eye className="h-4 w-4" />
           </Link>
         </Button>
@@ -73,7 +80,7 @@ function buildWebTabColumns(): ColumnDef<WebTab>[] {
       accessorKey: "url",
       header: "URL",
       cell: ({ row }) => (
-        <span className="font-mono text-xs truncate max-w-[200px] inline-block">
+        <span className="inline-block max-w-[200px] truncate font-mono text-xs">
           {row.original.url}
         </span>
       ),
@@ -88,31 +95,32 @@ function buildWebTabColumns(): ColumnDef<WebTab>[] {
 export function RunsListPage() {
   const [tab, setTab] = useState("queue");
 
-  const { data: runs = [], isLoading: runsLoading } = useQuery({
-    queryKey: ["runs"],
-    queryFn: mockApi.getRuns,
-  });
-  const { data: workers = [], isLoading: workersLoading } = useQuery({
-    queryKey: ["workers"],
-    queryFn: mockApi.getWorkers,
-  });
+  const { data: runs = [], isLoading: runsLoading } = useRuns();
+  const { data: workers = [], isLoading: workersLoading } = useWorkers();
   const { data: webTabs = [], isLoading: tabsLoading } = useQuery({
     queryKey: ["web-tabs"],
     queryFn: listTabs,
   });
 
-  if (runsLoading || workersLoading || tabsLoading) return <MockLoading />;
+  if (runsLoading || workersLoading || tabsLoading) {
+    return <MockLoading />;
+  }
 
   const runColumns = buildRunColumns();
   const webTabColumns = buildWebTabColumns();
-  const activeRuns = runs.filter((r) => r.status === "RUNNING" || r.status === "QUEUED");
+  const activeRuns = runs.filter(
+    (r) => r.status === "RUNNING" || r.status === "QUEUED"
+  );
   const failedRuns = runs.filter((r) => r.status === "FAILED");
 
   return (
     <div className="space-y-6">
-      <PageHeader title="运行监控" description="运行队列、Worker 状态、Web 工作区 Tab 与历史记录" />
+      <PageHeader
+        description="运行队列、Worker 状态、Web 工作区 Tab 与历史记录"
+        title="运行监控"
+      />
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs onValueChange={setTab} value={tab}>
         <TabsList>
           <TabsTrigger value="queue">运行队列</TabsTrigger>
           <TabsTrigger value="history">历史运行</TabsTrigger>
@@ -120,19 +128,19 @@ export function RunsListPage() {
           <TabsTrigger value="web-tabs">Web 工作区 Tab</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="queue" className="mt-4">
+        <TabsContent className="mt-4" value="queue">
           <DataTable columns={runColumns} data={activeRuns} pageSize={5} />
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4 space-y-6">
+        <TabsContent className="mt-4 space-y-6" value="history">
           <DataTable columns={runColumns} data={runs} />
           <div>
-            <h3 className="mb-3 text-lg font-semibold">失败重试列表</h3>
+            <h3 className="mb-3 font-semibold text-lg">失败重试列表</h3>
             <DataTable columns={runColumns} data={failedRuns} pageSize={5} />
           </div>
         </TabsContent>
 
-        <TabsContent value="workers" className="mt-4">
+        <TabsContent className="mt-4" value="workers">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {workers.map((w) => (
               <WorkerStatusCard key={w.id} worker={w} />
@@ -140,7 +148,7 @@ export function RunsListPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="web-tabs" className="mt-4">
+        <TabsContent className="mt-4" value="web-tabs">
           <DataTable columns={webTabColumns} data={webTabs} />
         </TabsContent>
       </Tabs>

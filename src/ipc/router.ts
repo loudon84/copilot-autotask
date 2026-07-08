@@ -1,4 +1,6 @@
 import { app } from "./app";
+import { auth } from "./auth";
+import { autotaskApi } from "./autotask-api";
 import { shell } from "./shell";
 import { theme } from "./theme";
 import { webWorkspace } from "./web-workspace";
@@ -10,4 +12,6 @@ export const router = {
   app,
   shell,
   webWorkspace,
+  auth,
+  autotaskApi,
 };

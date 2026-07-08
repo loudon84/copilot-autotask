@@ -1,10 +1,10 @@
+import { useNavigate } from "@tanstack/react-router";
+import { CheckCircle, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { openHumanTask } from "@/actions/web-workspace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -13,11 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mockApi } from "@/services/mock-api";
-import type { HumanAction, HumanActionType } from "@/types/human-action";
-import { ExternalLink, CheckCircle, Copy } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
-import { openHumanTask } from "@/actions/web-workspace";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  useConfirmHumanAction,
+  useMarkHumanOpened,
+} from "@/features/tasks/api/use-task-mutations";
+import { useHumanAction } from "@/features/tasks/api/use-tasks";
+import { autotaskApi } from "@/services/autotask-api";
+import type { HumanActionType } from "@/types/human-action";
 
 const typeLabels: Record<HumanActionType, string> = {
   manual_confirm: "人工确认",
@@ -28,13 +32,13 @@ const typeLabels: Record<HumanActionType, string> = {
   manual_exception_handle: "异常处理",
 };
 
-type HumanConfirmDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  taskId: string;
+interface HumanConfirmDialogProps {
   humanActionId: string;
   onConfirmed?: () => void;
-};
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  taskId: string;
+}
 
 export function HumanConfirmDialog({
   open,
@@ -46,10 +50,12 @@ export function HumanConfirmDialog({
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const confirmMutation = useConfirmHumanAction();
+
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      const result = await mockApi.confirmHumanAction({
+      const result = await confirmMutation.mutateAsync({
         taskId,
         humanActionId,
         note,
@@ -68,7 +74,7 @@ export function HumanConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>确认人工操作已完成？</DialogTitle>
@@ -79,15 +85,17 @@ export function HumanConfirmDialog({
         <div className="space-y-2">
           <Label>处理备注（可选）</Label>
           <Textarea
-            value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="例如：已在客户B供应商平台完成装箱单上传"
             rows={3}
+            value={note}
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleConfirm} disabled={loading}>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
+            取消
+          </Button>
+          <Button disabled={loading} onClick={handleConfirm}>
             <CheckCircle className="mr-2 h-4 w-4" /> 确认已完成
           </Button>
         </DialogFooter>
@@ -96,25 +104,32 @@ export function HumanConfirmDialog({
   );
 }
 
-type HumanActionPanelProps = {
-  taskId: string;
-  status: string;
+interface HumanActionPanelProps {
   onUpdate?: () => void;
-};
+  status: string;
+  taskId: string;
+}
 
-export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelProps) {
+export function HumanActionPanel({
+  taskId,
+  status,
+  onUpdate,
+}: HumanActionPanelProps) {
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [opening, setOpening] = useState(false);
 
-  const { data: humanAction } = useQuery({
-    queryKey: ["human-action", taskId],
-    queryFn: () => mockApi.getHumanAction(taskId),
-    enabled: !!taskId,
-  });
+  const markHumanOpened = useMarkHumanOpened();
+  const { data: humanAction } = useHumanAction(taskId);
 
-  if (!humanAction) return null;
-  if (!["WAITING_HUMAN", "HUMAN_OPERATING", "SUCCESS_MANUAL"].includes(status)) return null;
+  if (!humanAction) {
+    return null;
+  }
+  if (
+    !["WAITING_HUMAN", "HUMAN_OPERATING", "SUCCESS_MANUAL"].includes(status)
+  ) {
+    return null;
+  }
 
   const handleOpen = async () => {
     setOpening(true);
@@ -123,8 +138,12 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
         ? `persist:srm:${humanAction.portalId}`
         : `persist:task:${taskId}`;
       if (humanAction.portalId) {
-        const portal = await mockApi.getSrmPortalById(humanAction.portalId);
-        if (portal) sessionPartition = portal.clientSessionPartition;
+        const portal = await autotaskApi.portalAccounts.get(
+          humanAction.portalId
+        );
+        if (portal) {
+          sessionPartition = portal.clientSessionPartition;
+        }
       }
 
       const tab = await openHumanTask({
@@ -136,7 +155,7 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
         sessionPartition,
       });
 
-      await mockApi.markHumanOpened({
+      await markHumanOpened.mutateAsync({
         taskId,
         humanActionId: humanAction.id,
         clientTabId: tab.id,
@@ -178,12 +197,14 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
               <dd>{typeLabels[humanAction.type]}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground mb-1">处理说明</dt>
+              <dt className="mb-1 text-muted-foreground">处理说明</dt>
               <dd>{humanAction.instruction}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">目标页面</dt>
-              <dd className="font-mono text-xs truncate max-w-[300px]">{humanAction.targetUrl}</dd>
+              <dd className="max-w-[300px] truncate font-mono text-xs">
+                {humanAction.targetUrl}
+              </dd>
             </div>
             {humanAction.confirmedAt && (
               <>
@@ -197,7 +218,7 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
                 </div>
                 {humanAction.note && (
                   <div>
-                    <dt className="text-muted-foreground mb-1">确认备注</dt>
+                    <dt className="mb-1 text-muted-foreground">确认备注</dt>
                     <dd>{humanAction.note}</dd>
                   </div>
                 )}
@@ -207,14 +228,18 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
 
           {(status === "WAITING_HUMAN" || status === "HUMAN_OPERATING") && (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={handleOpen} disabled={opening}>
+              <Button disabled={opening} onClick={handleOpen} size="sm">
                 <ExternalLink className="mr-2 h-4 w-4" />
                 {status === "HUMAN_OPERATING" ? "重新打开" : "快速打开"}
               </Button>
-              <Button size="sm" variant="outline" onClick={handleCopyUrl}>
+              <Button onClick={handleCopyUrl} size="sm" variant="outline">
                 <Copy className="mr-2 h-4 w-4" /> 复制链接
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setConfirmOpen(true)}>
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                size="sm"
+                variant="outline"
+              >
                 <CheckCircle className="mr-2 h-4 w-4" /> 确认已完成
               </Button>
             </div>
@@ -223,11 +248,11 @@ export function HumanActionPanel({ taskId, status, onUpdate }: HumanActionPanelP
       </Card>
 
       <HumanConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        taskId={taskId}
         humanActionId={humanAction.id}
         onConfirmed={onUpdate}
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        taskId={taskId}
       />
     </>
   );

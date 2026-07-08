@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
-import { mockApi } from "@/services/mock-api";
+import { useRpaComponents } from "@/features/components/api/use-rpa-components";
 
 const categories = [
   "全部",
@@ -21,26 +20,27 @@ const categories = [
 export function ComponentsPage() {
   const [category, setCategory] = useState("全部");
 
-  const { data: components = [], isLoading } = useQuery({
-    queryKey: ["rpa-components"],
-    queryFn: mockApi.getRpaComponents,
-  });
+  const { data: components = [], isLoading } = useRpaComponents();
 
   const filtered =
     category === "全部"
       ? components
       : components.filter((c) => c.category === category);
 
-  if (isLoading) return <MockLoading />;
+  if (isLoading) {
+    return <MockLoading />;
+  }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="RPA 组件库" description="平台支持的原子 RPA 组件" />
+      <PageHeader description="平台支持的原子 RPA 组件" title="RPA 组件库" />
 
-      <Tabs value={category} onValueChange={setCategory}>
-        <TabsList className="flex h-auto flex-wrap">
+      <Tabs onValueChange={setCategory} value={category}>
+        <TabsList className="h-auto flex-wrap">
           {categories.map((cat) => (
-            <TabsTrigger key={cat} value={cat}>{cat}</TabsTrigger>
+            <TabsTrigger key={cat} value={cat}>
+              {cat}
+            </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
@@ -50,23 +50,17 @@ export function ComponentsPage() {
           <Card key={comp.id}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-mono">{comp.name}</CardTitle>
-                <Badge variant={comp.enabled ? "default" : "secondary"}>
-                  {comp.enabled ? "启用" : "禁用"}
-                </Badge>
+                <CardTitle className="text-sm">{comp.name}</CardTitle>
+                <Badge variant="outline">{comp.category}</Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <Badge variant="outline">{comp.category}</Badge>
-              <p className="text-muted-foreground">{comp.description}</p>
-              <div>
-                <p className="text-xs text-muted-foreground">输入参数</p>
-                <p className="font-mono text-xs">{comp.inputParams.join(", ")}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">输出</p>
-                <p className="font-mono text-xs">{comp.outputResult}</p>
-              </div>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                {comp.description}
+              </p>
+              <p className="mt-2 font-mono text-muted-foreground text-xs">
+                {comp.type}
+              </p>
             </CardContent>
           </Card>
         ))}

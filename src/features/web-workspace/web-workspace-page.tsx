@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/common/page-header";
 import {
   activateTab,
   closeTab,
@@ -42,7 +41,9 @@ export function WebWorkspacePage() {
 
   const syncBounds = useCallback(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const rect = el.getBoundingClientRect();
     setWorkspaceBounds({
       x: rect.left,
@@ -63,7 +64,9 @@ export function WebWorkspacePage() {
   useEffect(() => {
     syncBounds();
     const observer = new ResizeObserver(() => syncBounds());
-    if (containerRef.current) observer.observe(containerRef.current);
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
     window.addEventListener("resize", syncBounds);
     return () => {
       observer.disconnect();
@@ -76,7 +79,9 @@ export function WebWorkspacePage() {
       (tab: WebTab) => {
         queryClient.setQueryData<WebTab[]>(["web-tabs"], (prev = []) => {
           const idx = prev.findIndex((t) => t.id === tab.id);
-          if (idx === -1) return [...prev, tab];
+          if (idx === -1) {
+            return [...prev, tab];
+          }
           const next = [...prev];
           next[idx] = tab;
           return next;
@@ -92,7 +97,9 @@ export function WebWorkspacePage() {
   useEffect(() => {
     if (tabs.length > 0 && !activeTabId) {
       const last = tabs[tabs.length - 1];
-      if (last) setActiveTabId(last.id);
+      if (last) {
+        setActiveTabId(last.id);
+      }
     }
   }, [tabs, activeTabId]);
 
@@ -118,7 +125,9 @@ export function WebWorkspacePage() {
       await closeTab(tabId);
       await refetch();
       const remaining = await listTabs();
-      setActiveTabId(remaining.length > 0 ? remaining[remaining.length - 1]!.id : null);
+      setActiveTabId(
+        remaining.length > 0 ? remaining[remaining.length - 1]!.id : null
+      );
       syncBounds();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "关闭 Tab 失败");
@@ -147,7 +156,9 @@ export function WebWorkspacePage() {
   };
 
   const handleCopyUrl = async () => {
-    if (!activeTabId) return;
+    if (!activeTabId) {
+      return;
+    }
     try {
       const url = await copyUrl(activeTabId);
       await navigator.clipboard.writeText(url);
@@ -158,35 +169,36 @@ export function WebWorkspacePage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">      
-
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
       <WebTabBar
-        tabs={tabs}
         activeTabId={activeTabId}
         onActivate={handleActivate}
         onClose={handleClose}
         onNewTab={handleNewTab}
+        tabs={tabs}
       />
 
       <WebToolbar
         activeTab={activeTab ?? null}
         addressValue={addressValue}
         onAddressChange={setAddressValue}
-        onNavigate={handleNavigate}
         onBack={() => activeTabId && goBack(activeTabId).then(() => refetch())}
-        onForward={() => activeTabId && goForward(activeTabId).then(() => refetch())}
-        onReload={() => activeTabId && reloadTab(activeTabId)}
-        onOpenExternal={() => activeTab && openExternal(activeTab.url)}
         onClose={() => activeTabId && handleClose(activeTabId)}
+        onForward={() =>
+          activeTabId && goForward(activeTabId).then(() => refetch())
+        }
+        onNavigate={handleNavigate}
+        onOpenExternal={() => activeTab && openExternal(activeTab.url)}
+        onReload={() => activeTabId && reloadTab(activeTabId)}
       />
 
       <div
-        ref={containerRef}
         className="relative flex-1 bg-muted/20"
         onContextMenu={(e) => {
           e.preventDefault();
           handleCopyUrl();
         }}
+        ref={containerRef}
       >
         {tabs.length === 0 && (
           <WebEmptyState onOpenUrl={() => toast.info("请在地址栏输入网址")} />

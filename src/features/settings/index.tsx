@@ -1,39 +1,44 @@
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
 import { setTheme } from "@/actions/theme";
 import { clearAllWebSessions } from "@/actions/web-workspace";
-import { mockApi } from "@/services/mock-api";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useSettings,
+  useUpdateSettings,
+} from "@/features/settings/api/use-settings";
 import type { AppSettings } from "@/types/settings";
 import type { ThemeMode } from "@/types/theme-mode";
-import { Trash2 } from "lucide-react";
 
 export function SettingsPage() {
   const [tab, setTab] = useState("basic");
 
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ["settings"],
-    queryFn: mockApi.getSettings,
-  });
+  const { data: settings, isLoading } = useSettings();
+  const updateMutation = useUpdateSettings();
 
-  const updateMutation = useMutation({
-    mutationFn: mockApi.updateSettings,
-    onSuccess: () => toast.success("设置已保存"),
-  });
-
-  if (isLoading || !settings) return <MockLoading />;
+  if (isLoading || !settings) {
+    return <MockLoading />;
+  }
 
   const update = (patch: Partial<AppSettings>) => {
-    updateMutation.mutate(patch);
+    updateMutation.mutate(patch, {
+      onSuccess: () => toast.success("设置已保存"),
+    });
   };
 
   const handleThemeChange = async (theme: ThemeMode) => {
@@ -52,9 +57,9 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="系统设置" description="本地原型配置" />
+      <PageHeader description="本地原型配置" title="系统设置" />
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs onValueChange={setTab} value={tab}>
         <TabsList>
           <TabsTrigger value="basic">基础设置</TabsTrigger>
           <TabsTrigger value="web-workspace">Web 工作区</TabsTrigger>
@@ -67,11 +72,20 @@ export function SettingsPage() {
         <TabsContent value="basic">
           <SettingsCard title="基础设置">
             <Field label="日志级别">
-              <Select value={settings.logLevel} onValueChange={(v) => update({ logLevel: v as AppSettings["logLevel"] })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                onValueChange={(v) =>
+                  update({ logLevel: v as AppSettings["logLevel"] })
+                }
+                value={settings.logLevel}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {["DEBUG", "INFO", "WARN", "ERROR"].map((l) => (
-                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -83,43 +97,52 @@ export function SettingsPage() {
           <SettingsCard title="Web 工作区设置">
             <Field label="默认打开方式">
               <Select
+                onValueChange={(v) =>
+                  update({
+                    defaultOpenMode: v as AppSettings["defaultOpenMode"],
+                  })
+                }
                 value={settings.defaultOpenMode}
-                onValueChange={(v) => update({ defaultOpenMode: v as AppSettings["defaultOpenMode"] })}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="webcontents">内置 Web 工作区</SelectItem>
-                  <SelectItem value="system_browser">系统浏览器（兜底）</SelectItem>
+                  <SelectItem value="system_browser">
+                    系统浏览器（兜底）
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </Field>
 
             <Field label="下载目录">
               <Input
-                value={settings.downloadsRootPath}
                 onChange={(e) => update({ downloadsRootPath: e.target.value })}
+                value={settings.downloadsRootPath}
               />
             </Field>
 
             <SwitchField
-              label="允许清理 Portal 登录态"
               checked={settings.allowResetSession}
+              label="允许清理 Portal 登录态"
               onCheckedChange={(v) => update({ allowResetSession: v })}
             />
             <SwitchField
-              label="允许清理所有 Web 缓存"
               checked={settings.allowClearAllCache}
+              label="允许清理所有 Web 缓存"
               onCheckedChange={(v) => update({ allowClearAllCache: v })}
             />
 
             {settings.allowClearAllCache && (
-              <Button variant="outline" onClick={handleClearAllCache}>
+              <Button onClick={handleClearAllCache} variant="outline">
                 <Trash2 className="mr-2 h-4 w-4" /> 清理所有 Web 工作区缓存
               </Button>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              Web 工作区使用 Electron session partition 隔离各客户 SRM 登录态，不与服务器 RPA 共享。
+            <p className="text-muted-foreground text-xs">
+              Web 工作区使用 Electron session partition 隔离各客户 SRM
+              登录态，不与服务器 RPA 共享。
             </p>
           </SettingsCard>
         </TabsContent>
@@ -127,8 +150,8 @@ export function SettingsPage() {
         <TabsContent value="worker">
           <SettingsCard title="Worker 设置">
             <SwitchField
-              label="失败自动重试"
               checked={true}
+              label="失败自动重试"
               onCheckedChange={() => toast.info("Mock 设置，未持久化")}
             />
           </SettingsCard>
@@ -138,18 +161,18 @@ export function SettingsPage() {
           <SettingsCard title="存储设置">
             <Field label="Artifact 本地路径">
               <Input
-                value={settings.artifactPath}
                 onChange={(e) => update({ artifactPath: e.target.value })}
+                value={settings.artifactPath}
               />
             </Field>
             <SwitchField
-              label="保存截图"
               checked={settings.saveScreenshots}
+              label="保存截图"
               onCheckedChange={(v) => update({ saveScreenshots: v })}
             />
             <SwitchField
-              label="开启 Trace"
               checked={settings.enableTrace}
+              label="开启 Trace"
               onCheckedChange={(v) => update({ enableTrace: v })}
             />
           </SettingsCard>
@@ -158,8 +181,13 @@ export function SettingsPage() {
         <TabsContent value="appearance">
           <SettingsCard title="外观设置">
             <Field label="主题模式">
-              <Select value={settings.themeMode} onValueChange={(v) => handleThemeChange(v as ThemeMode)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                onValueChange={(v) => handleThemeChange(v as ThemeMode)}
+                value={settings.themeMode}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="light">浅色</SelectItem>
                   <SelectItem value="dark">深色</SelectItem>
@@ -174,12 +202,14 @@ export function SettingsPage() {
           <SettingsCard title="Mock 数据设置">
             <Field label="Mock 延迟时间 (ms)">
               <Input
+                onChange={(e) =>
+                  update({ mockDelayMs: Number(e.target.value) })
+                }
                 type="number"
                 value={settings.mockDelayMs}
-                onChange={(e) => update({ mockDelayMs: Number(e.target.value) })}
               />
             </Field>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               模拟 API 请求延迟，用于测试 loading 状态。
             </p>
           </SettingsCard>
@@ -189,16 +219,30 @@ export function SettingsPage() {
   );
 }
 
-function SettingsCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SettingsCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">{title}</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>

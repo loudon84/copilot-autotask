@@ -1,5 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { WebAddressInput } from "./web-address-input";
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,7 +5,9 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { WebTab } from "@/types/web-tab";
+import { WebAddressInput } from "./web-address-input";
 
 type WebToolbarProps = {
   activeTab: WebTab | null;
@@ -35,55 +35,55 @@ export function WebToolbar({
   return (
     <div className="flex items-center gap-1 border-b px-2 py-1.5">
       <Button
-        variant="ghost"
-        size="icon"
         className="h-8 w-8"
-        onClick={onBack}
         disabled={!activeTab?.canGoBack}
+        onClick={onBack}
+        size="icon"
+        variant="ghost"
       >
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <Button
-        variant="ghost"
-        size="icon"
         className="h-8 w-8"
-        onClick={onForward}
         disabled={!activeTab?.canGoForward}
+        onClick={onForward}
+        size="icon"
+        variant="ghost"
       >
         <ArrowRight className="h-4 w-4" />
       </Button>
       <Button
-        variant="ghost"
-        size="icon"
         className="h-8 w-8"
-        onClick={onReload}
         disabled={!activeTab}
+        onClick={onReload}
+        size="icon"
+        variant="ghost"
       >
         <RefreshCw className="h-4 w-4" />
       </Button>
 
       <WebAddressInput
-        value={addressValue}
+        disabled={!activeTab}
         onChange={onAddressChange}
         onNavigate={onNavigate}
-        disabled={!activeTab}
+        value={addressValue}
       />
 
       <Button
-        variant="ghost"
-        size="icon"
         className="h-8 w-8"
-        onClick={onOpenExternal}
         disabled={!activeTab}
+        onClick={onOpenExternal}
+        size="icon"
+        variant="ghost"
       >
         <ExternalLink className="h-4 w-4" />
       </Button>
       <Button
-        variant="ghost"
-        size="icon"
         className="h-8 w-8"
-        onClick={onClose}
         disabled={!activeTab}
+        onClick={onClose}
+        size="icon"
+        variant="ghost"
       >
         <X className="h-4 w-4" />
       </Button>

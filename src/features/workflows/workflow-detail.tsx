@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { StepTimeline } from "@/components/business/step-timeline";
+import { WorkflowStepCard } from "@/components/business/workflow-step-card";
+import { EmptyState } from "@/components/common/empty-state";
+import { MockLoading } from "@/components/common/mock-loading";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MockLoading } from "@/components/common/mock-loading";
-import { EmptyState } from "@/components/common/empty-state";
-import { StepTimeline } from "@/components/business/step-timeline";
-import { WorkflowStepCard } from "@/components/business/workflow-step-card";
-import { mockApi } from "@/services/mock-api";
+import { useWorkflowTemplate } from "@/features/workflows/api/use-workflow-templates";
+import type { WorkflowTemplate } from "@/types/workflow";
 
-function toYaml(workflow: NonNullable<Awaited<ReturnType<typeof mockApi.getWorkflowById>>>): string {
+function toYaml(workflow: WorkflowTemplate): string {
   const lines = [
     `workflow_id: ${workflow.id}`,
     `name: ${workflow.name}`,
@@ -23,30 +23,42 @@ function toYaml(workflow: NonNullable<Awaited<ReturnType<typeof mockApi.getWorkf
 export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
   const [tab, setTab] = useState("basic");
 
-  const { data: workflow, isLoading } = useQuery({
-    queryKey: ["workflow", workflowId],
-    queryFn: () => mockApi.getWorkflowById(workflowId),
-  });
+  const { data: workflow, isLoading } = useWorkflowTemplate(workflowId);
 
-  if (isLoading) return <MockLoading />;
-  if (!workflow) return <EmptyState title="模板不存在" />;
+  if (isLoading) {
+    return <MockLoading />;
+  }
+  if (!workflow) {
+    return <EmptyState title="模板不存在" />;
+  }
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold">{workflow.name}</h2>
+        <h2 className="font-bold text-2xl">{workflow.name}</h2>
         <div className="mt-2 flex gap-2">
           <Badge variant="outline">v{workflow.version}</Badge>
-          <Badge variant={workflow.status === "enabled" ? "default" : "secondary"}>
-            {workflow.status === "enabled" ? "启用" : workflow.status === "disabled" ? "禁用" : "草稿"}
+          <Badge
+            variant={workflow.status === "enabled" ? "default" : "secondary"}
+          >
+            {workflow.status === "enabled"
+              ? "启用"
+              : workflow.status === "disabled"
+                ? "禁用"
+                : "草稿"}
           </Badge>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-4">
-        <Tabs value={tab} onValueChange={setTab} className="lg:col-span-4" orientation="vertical">
+        <Tabs
+          className="lg:col-span-4"
+          onValueChange={setTab}
+          orientation="vertical"
+          value={tab}
+        >
           <div className="flex flex-col gap-4 lg:flex-row">
-            <TabsList className="flex h-auto flex-row lg:flex-col lg:w-40">
+            <TabsList className="flex h-auto flex-row lg:w-40 lg:flex-col">
               <TabsTrigger value="basic">基础信息</TabsTrigger>
               <TabsTrigger value="input">输入参数</TabsTrigger>
               <TabsTrigger value="steps">步骤配置</TabsTrigger>
@@ -58,11 +70,23 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
             <div className="flex-1">
               <TabsContent value="basic">
                 <Card>
-                  <CardContent className="pt-4 space-y-2 text-sm">
-                    <p><span className="text-muted-foreground">编码：</span>{workflow.code}</p>
-                    <p><span className="text-muted-foreground">分类：</span>{workflow.category}</p>
-                    <p><span className="text-muted-foreground">目标：</span>{workflow.target}</p>
-                    <p><span className="text-muted-foreground">描述：</span>{workflow.description}</p>
+                  <CardContent className="space-y-2 pt-4 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">编码：</span>
+                      {workflow.code}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">分类：</span>
+                      {workflow.category}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">目标：</span>
+                      {workflow.target}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">描述：</span>
+                      {workflow.description}
+                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -81,7 +105,7 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
                       </thead>
                       <tbody>
                         {workflow.inputSchema.map((f) => (
-                          <tr key={f.name} className="border-b">
+                          <tr className="border-b" key={f.name}>
                             <td className="py-2 font-mono">{f.name}</td>
                             <td className="py-2">{f.label}</td>
                             <td className="py-2">{f.type}</td>
@@ -94,7 +118,7 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="steps" className="space-y-4">
+              <TabsContent className="space-y-4" value="steps">
                 <StepTimeline steps={workflow.steps} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   {workflow.steps.map((step) => (
@@ -105,11 +129,16 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
 
               <TabsContent value="error">
                 <Card>
-                  <CardContent className="pt-4 space-y-3">
+                  <CardContent className="space-y-3 pt-4">
                     {workflow.steps.map((step) => (
-                      <div key={step.id} className="flex justify-between text-sm border-b pb-2">
+                      <div
+                        className="flex justify-between border-b pb-2 text-sm"
+                        key={step.id}
+                      >
                         <span>{step.name}</span>
-                        <Badge variant="outline">{step.onError ?? "fail"}</Badge>
+                        <Badge variant="outline">
+                          {step.onError ?? "fail"}
+                        </Badge>
                       </div>
                     ))}
                   </CardContent>
@@ -118,9 +147,13 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
 
               <TabsContent value="yaml">
                 <Card>
-                  <CardHeader><CardTitle className="text-sm font-mono">Mock YAML</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle className="font-mono text-sm">
+                      Mock YAML
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent>
-                    <pre className="rounded-md bg-muted p-4 text-xs font-mono overflow-auto">
+                    <pre className="overflow-auto rounded-md bg-muted p-4 font-mono text-xs">
                       {toYaml(workflow)}
                     </pre>
                   </CardContent>
@@ -130,8 +163,9 @@ export function WorkflowDetailPage({ workflowId }: { workflowId: string }) {
               <TabsContent value="test">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Mock 测试运行：点击后将模拟执行流程（本阶段不实际运行 RPA）。
+                    <p className="text-muted-foreground text-sm">
+                      Mock 测试运行：点击后将模拟执行流程（本阶段不实际运行
+                      RPA）。
                     </p>
                   </CardContent>
                 </Card>

@@ -1,13 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
-import { DataTable } from "@/components/common/data-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { LoginStateBadge } from "@/components/business/login-state-badge";
 import { PortalActions } from "@/components/business/portal-actions";
-import { mockApi } from "@/services/mock-api";
+import { DataTable } from "@/components/common/data-table";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
+import { Badge } from "@/components/ui/badge";
+import { usePortalAccounts } from "@/features/srm-portals/api/use-portal-accounts";
 import type { SRMPortal } from "@/types/srm-portal";
 
 const openModeLabels: Record<SRMPortal["clientOpenMode"], string> = {
@@ -22,7 +21,11 @@ function buildColumns(): ColumnDef<SRMPortal>[] {
       accessorKey: "name",
       header: "门户名称",
       cell: ({ row }) => (
-        <Link to="/srm-portals/$portalId" params={{ portalId: row.original.id }} className="hover:underline">
+        <Link
+          className="hover:underline"
+          params={{ portalId: row.original.id }}
+          to="/srm-portals/$portalId"
+        >
           {row.original.name}
         </Link>
       ),
@@ -38,7 +41,7 @@ function buildColumns(): ColumnDef<SRMPortal>[] {
       accessorKey: "clientSessionPartition",
       header: "Session 分区",
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+        <span className="inline-block max-w-[160px] truncate font-mono text-muted-foreground text-xs">
           {row.original.clientSessionPartition}
         </span>
       ),
@@ -62,7 +65,9 @@ function buildColumns(): ColumnDef<SRMPortal>[] {
       accessorKey: "status",
       header: "状态",
       cell: ({ row }) => (
-        <Badge variant={row.original.status === "enabled" ? "default" : "secondary"}>
+        <Badge
+          variant={row.original.status === "enabled" ? "default" : "secondary"}
+        >
           {row.original.status === "enabled" ? "启用" : "禁用"}
         </Badge>
       ),
@@ -71,24 +76,26 @@ function buildColumns(): ColumnDef<SRMPortal>[] {
     {
       id: "actions",
       header: "操作",
-      cell: ({ row }) => <PortalActions portal={row.original} compact />,
+      cell: ({ row }) => <PortalActions compact portal={row.original} />,
     },
   ];
 }
 
 export function SrmPortalsListPage() {
-  const { data: portals = [], isLoading } = useQuery({
-    queryKey: ["srm-portals"],
-    queryFn: mockApi.getSrmPortals,
-  });
+  const { data: portals = [], isLoading } = usePortalAccounts();
 
-  if (isLoading) return <MockLoading />;
+  if (isLoading) {
+    return <MockLoading />;
+  }
 
   const columns = buildColumns();
 
   return (
     <div className="space-y-4">
-      <PageHeader title="客户 SRM" description="管理客户 SRM 门户配置，支持快速打开与 Session 管理" />
+      <PageHeader
+        description="管理客户 SRM 门户配置，支持快速打开与 Session 管理"
+        title="客户 SRM"
+      />
       <DataTable columns={columns} data={portals} />
     </div>
   );

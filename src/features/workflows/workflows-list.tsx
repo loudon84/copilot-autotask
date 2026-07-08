@@ -1,21 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
+import { DataTable } from "@/components/common/data-table";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
-import { DataTable } from "@/components/common/data-table";
-import { mockApi } from "@/services/mock-api";
+import { useWorkflowTemplates } from "@/features/workflows/api/use-workflow-templates";
 import type { WorkflowTemplate } from "@/types/workflow";
-import { Eye } from "lucide-react";
 
 const columns: ColumnDef<WorkflowTemplate>[] = [
   {
     accessorKey: "name",
     header: "模板名称",
     cell: ({ row }) => (
-      <Link to="/workflows/$workflowId" params={{ workflowId: row.original.id }} className="hover:underline font-medium">
+      <Link
+        className="font-medium hover:underline"
+        params={{ workflowId: row.original.id }}
+        to="/workflows/$workflowId"
+      >
         {row.original.name}
       </Link>
     ),
@@ -28,8 +31,14 @@ const columns: ColumnDef<WorkflowTemplate>[] = [
     accessorKey: "status",
     header: "状态",
     cell: ({ row }) => (
-      <Badge variant={row.original.status === "enabled" ? "default" : "secondary"}>
-        {row.original.status === "enabled" ? "启用" : row.original.status === "disabled" ? "禁用" : "草稿"}
+      <Badge
+        variant={row.original.status === "enabled" ? "default" : "secondary"}
+      >
+        {row.original.status === "enabled"
+          ? "启用"
+          : row.original.status === "disabled"
+            ? "禁用"
+            : "草稿"}
       </Badge>
     ),
   },
@@ -43,8 +52,11 @@ const columns: ColumnDef<WorkflowTemplate>[] = [
     id: "actions",
     header: "操作",
     cell: ({ row }) => (
-      <Button variant="ghost" size="sm" asChild>
-        <Link to="/workflows/$workflowId" params={{ workflowId: row.original.id }}>
+      <Button asChild size="sm" variant="ghost">
+        <Link
+          params={{ workflowId: row.original.id }}
+          to="/workflows/$workflowId"
+        >
           <Eye className="h-4 w-4" />
         </Link>
       </Button>
@@ -53,16 +65,15 @@ const columns: ColumnDef<WorkflowTemplate>[] = [
 ];
 
 export function WorkflowsListPage() {
-  const { data: workflows = [], isLoading } = useQuery({
-    queryKey: ["workflows"],
-    queryFn: mockApi.getWorkflowTemplates,
-  });
+  const { data: workflows = [], isLoading } = useWorkflowTemplates();
 
-  if (isLoading) return <MockLoading />;
+  if (isLoading) {
+    return <MockLoading />;
+  }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="流程模板" description="管理 RPA 流程模板" />
+      <PageHeader description="管理 RPA 流程模板" title="流程模板" />
       <DataTable columns={columns} data={workflows} />
     </div>
   );

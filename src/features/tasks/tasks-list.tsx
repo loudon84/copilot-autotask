@@ -1,22 +1,29 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ColumnDef } from "@tanstack/react-table";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PageHeader } from "@/components/common/page-header";
-import { MockLoading } from "@/components/common/mock-loading";
-import { DataTable } from "@/components/common/data-table";
-import { FilterBar } from "@/components/common/filter-bar";
-import { SearchInput } from "@/components/common/search-input";
-import { StatusBadge } from "@/components/business/status-badge";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Plus } from "lucide-react";
+import { useState } from "react";
 import { PriorityBadge } from "@/components/business/priority-badge";
 import { ProgressCell } from "@/components/business/progress-cell";
+import { StatusBadge } from "@/components/business/status-badge";
 import { TaskActions } from "@/components/business/task-actions";
-import { mockApi } from "@/services/mock-api";
-import type { AutomationTask, AutomationTaskStatus } from "@/types/automation-task";
-import { Plus } from "lucide-react";
+import { DataTable } from "@/components/common/data-table";
+import { FilterBar } from "@/components/common/filter-bar";
+import { MockLoading } from "@/components/common/mock-loading";
+import { PageHeader } from "@/components/common/page-header";
+import { SearchInput } from "@/components/common/search-input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTasks } from "@/features/tasks/api/use-tasks";
+import { queryKeys } from "@/services/query-keys";
+import type { AutomationTask } from "@/types/automation-task";
 
 const statusTabs: { value: string; label: string }[] = [
   { value: "all", label: "全部" },
@@ -35,13 +42,10 @@ export function TasksListPage() {
   const [keyword, setKeyword] = useState("");
   const [customer, setCustomer] = useState("all");
 
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: mockApi.getTasks,
-  });
+  const { data: tasks = [], isLoading } = useTasks();
 
   const onUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
     queryClient.invalidateQueries({ queryKey: ["human-action"] });
     queryClient.invalidateQueries({ queryKey: ["web-tabs"] });
   };
@@ -49,9 +53,15 @@ export function TasksListPage() {
   const customers = [...new Set(tasks.map((t) => t.customerName))];
 
   const filtered = tasks.filter((t) => {
-    if (statusTab !== "all" && t.status !== statusTab) return false;
-    if (customer !== "all" && t.customerName !== customer) return false;
-    if (keyword && !t.title.toLowerCase().includes(keyword.toLowerCase())) return false;
+    if (statusTab !== "all" && t.status !== statusTab) {
+      return false;
+    }
+    if (customer !== "all" && t.customerName !== customer) {
+      return false;
+    }
+    if (keyword && !t.title.toLowerCase().includes(keyword.toLowerCase())) {
+      return false;
+    }
     return true;
   });
 
@@ -60,7 +70,11 @@ export function TasksListPage() {
       accessorKey: "title",
       header: "任务标题",
       cell: ({ row }) => (
-        <Link to="/tasks/$taskId" params={{ taskId: row.original.id }} className="hover:underline font-medium">
+        <Link
+          className="font-medium hover:underline"
+          params={{ taskId: row.original.id }}
+          to="/tasks/$taskId"
+        >
           {row.original.title}
         </Link>
       ),
@@ -91,16 +105,23 @@ export function TasksListPage() {
       id: "actions",
       header: "操作",
       cell: ({ row }) => (
-        <TaskActions taskId={row.original.id} status={row.original.status} compact onUpdate={onUpdate} />
+        <TaskActions
+          compact
+          onUpdate={onUpdate}
+          status={row.original.status}
+          taskId={row.original.id}
+        />
       ),
     },
   ];
 
-  if (isLoading) return <MockLoading />;
+  if (isLoading) {
+    return <MockLoading />;
+  }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="自动化任务" description="管理所有自动化任务">
+      <PageHeader description="管理所有自动化任务" title="自动化任务">
         <Button asChild>
           <Link to="/tasks/new">
             <Plus className="mr-2 h-4 w-4" /> 新建任务
@@ -109,24 +130,33 @@ export function TasksListPage() {
       </PageHeader>
 
       <FilterBar>
-        <SearchInput value={keyword} onChange={setKeyword} placeholder="关键词搜索..." className="w-48" />
-        <Select value={customer} onValueChange={setCustomer}>
+        <SearchInput
+          className="w-48"
+          onChange={setKeyword}
+          placeholder="关键词搜索..."
+          value={keyword}
+        />
+        <Select onValueChange={setCustomer} value={customer}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder="客户" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部客户</SelectItem>
             {customers.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </FilterBar>
 
-      <Tabs value={statusTab} onValueChange={setStatusTab}>
+      <Tabs onValueChange={setStatusTab} value={statusTab}>
         <TabsList>
           {statusTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>

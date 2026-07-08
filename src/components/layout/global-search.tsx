@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   CommandDialog,
@@ -10,17 +10,23 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { mockApi } from "@/services/mock-api";
+import { autotaskApi } from "@/services/autotask-api";
+import type { AutomationTask } from "@/types/automation-task";
+import type { SRMPortal } from "@/types/srm-portal";
+import type { TaskRun } from "@/types/task-run";
+import type { WorkflowTemplate } from "@/types/workflow";
+
+interface SearchResults {
+  portals: SRMPortal[];
+  runs: TaskRun[];
+  tasks: AutomationTask[];
+  workflows: WorkflowTemplate[];
+}
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{
-    tasks: Awaited<ReturnType<typeof mockApi.search>>["tasks"];
-    workflows: Awaited<ReturnType<typeof mockApi.search>>["workflows"];
-    portals: Awaited<ReturnType<typeof mockApi.search>>["portals"];
-    runs: Awaited<ReturnType<typeof mockApi.search>>["runs"];
-  } | null>(null);
+  const [results, setResults] = useState<SearchResults | null>(null);
   const navigate = useNavigate();
 
   const handleSearch = async (value: string) => {
@@ -29,25 +35,25 @@ export function GlobalSearch() {
       setResults(null);
       return;
     }
-    const data = await mockApi.search(value);
+    const data = await autotaskApi.search(value);
     setResults(data);
   };
 
   return (
     <>
       <Button
-        variant="outline"
         className="relative h-8 w-48 justify-start text-muted-foreground sm:w-64"
         onClick={() => setOpen(true)}
+        variant="outline"
       >
         <Search className="mr-2 h-4 w-4" />
         搜索任务、模板...
       </Button>
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog onOpenChange={setOpen} open={open}>
         <CommandInput
+          onValueChange={handleSearch}
           placeholder="搜索任务、流程模板、SRM 门户、运行记录..."
           value={query}
-          onValueChange={handleSearch}
         />
         <CommandList>
           <CommandEmpty>未找到结果</CommandEmpty>
@@ -58,7 +64,10 @@ export function GlobalSearch() {
                   key={task.id}
                   onSelect={() => {
                     setOpen(false);
-                    navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
+                    navigate({
+                      to: "/tasks/$taskId",
+                      params: { taskId: task.id },
+                    });
                   }}
                 >
                   {task.title}
@@ -73,7 +82,10 @@ export function GlobalSearch() {
                   key={wf.id}
                   onSelect={() => {
                     setOpen(false);
-                    navigate({ to: "/workflows/$workflowId", params: { workflowId: wf.id } });
+                    navigate({
+                      to: "/workflows/$workflowId",
+                      params: { workflowId: wf.id },
+                    });
                   }}
                 >
                   {wf.name}
@@ -88,7 +100,10 @@ export function GlobalSearch() {
                   key={portal.id}
                   onSelect={() => {
                     setOpen(false);
-                    navigate({ to: "/srm-portals/$portalId", params: { portalId: portal.id } });
+                    navigate({
+                      to: "/srm-portals/$portalId",
+                      params: { portalId: portal.id },
+                    });
                   }}
                 >
                   {portal.name}
