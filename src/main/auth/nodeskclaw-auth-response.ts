@@ -1,22 +1,43 @@
 import type { PublicAuthOrganization, PublicAuthUser } from "@/types/auth";
 
-export interface AuthTokenResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_token: string;
-  token_type: string;
+export interface NodeskclawApiEnvelope<T> {
+  code: number;
+  data: T;
+  error_code: string | null;
+  message: string;
+  message_key: string | null;
 }
 
-export interface AuthMeResponse {
-  display_name?: string;
+export interface AuthUserResponse {
+  avatar_url?: string | null;
+  current_org_id?: string | null;
   email: string;
   id: string;
-  name?: string;
+  is_active?: boolean;
+  is_super_admin?: boolean;
+  name: string;
+  org_role?: string | null;
+  phone?: string | null;
+  portal_org_role?: string | null;
+  role?: string;
+  username?: string;
   organization?: {
     id: string;
     name: string;
   };
 }
+
+export interface AuthTokenData {
+  access_token: string;
+  expires_in: number;
+  needs_org_setup?: boolean;
+  provider?: string | null;
+  refresh_token: string;
+  token_type: string;
+  user?: AuthUserResponse;
+}
+
+export type AuthMeResponse = AuthUserResponse;
 
 export interface StoredAuthSession {
   accessToken: string;
@@ -27,29 +48,32 @@ export interface StoredAuthSession {
   user: PublicAuthUser;
 }
 
-export function mapMeToPublicUser(me: AuthMeResponse): PublicAuthUser {
+export function mapMeToPublicUser(me: AuthUserResponse): PublicAuthUser {
   return {
     id: me.id,
     email: me.email,
-    displayName: me.display_name ?? me.name ?? me.email,
+    displayName: me.name ?? me.email,
   };
 }
 
 export function mapMeToPublicOrg(
-  me: AuthMeResponse
+  me: AuthUserResponse
 ): PublicAuthOrganization | undefined {
-  if (!me.organization) {
-    return;
+  if (me.organization) {
+    return {
+      id: me.organization.id,
+      name: me.organization.name,
+    };
   }
-  return {
-    id: me.organization.id,
-    name: me.organization.name,
-  };
+  return;
 }
 
 export function toStoredSession(
-  tokens: AuthTokenResponse,
-  me: AuthMeResponse
+  tokens: Pick<
+    AuthTokenData,
+    "access_token" | "refresh_token" | "token_type" | "expires_in"
+  >,
+  me: AuthUserResponse
 ): StoredAuthSession {
   return {
     accessToken: tokens.access_token,
@@ -59,4 +83,25 @@ export function toStoredSession(
     user: mapMeToPublicUser(me),
     organization: mapMeToPublicOrg(me),
   };
+}
+
+export function isNodeskclawApiEnvelope<T>(
+  value: unknown
+): value is NodeskclawApiEnvelope<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "code" in value &&
+    "data" in value
+  );
+}
+
+export function unwrapNodeskclawApiEnvelope<T>(body: unknown): T {
+  if (isNodeskclawApiEnvelope<T>(body)) {
+    if (body.code !== 0) {
+      throw new Error(body.message || "Auth request failed");
+    }
+    return body.data;
+  }
+  return body as T;
 }

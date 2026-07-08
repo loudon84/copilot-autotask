@@ -5,8 +5,10 @@ import {
 import { getEndpointConfig } from "./auth-endpoint-config-store";
 import {
   type AuthMeResponse,
-  type AuthTokenResponse,
+  type AuthTokenData,
+  type AuthUserResponse,
   type StoredAuthSession,
+  isNodeskclawApiEnvelope,
   toStoredSession,
 } from "./nodeskclaw-auth-response";
 import {
@@ -38,56 +40,88 @@ async function authFetch<T>(
       ...options.headers,
     },
   });
-
-  if (!res.ok) {
-    let message = `Auth request failed: ${res.status}`;
-    try {
-      const body = (await res.json()) as { detail?: string; message?: string };
-      message = body.detail ?? body.message ?? message;
-    } catch {
-      // ignore parse error
-    }
-    throw new AuthError(message, res.status);
-  }
-
+  debugger;
   if (res.status === 204) {
     return undefined as T;
   }
-  return (await res.json()) as T;
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    throw new AuthError(`Auth request failed: ${res.status}`, res.status);
+  }
+
+  if (isNodeskclawApiEnvelope<T>(body)) {
+    debugger;
+    if (body.code !== 0 || !res.ok) {
+      throw new AuthError(
+        body.message || `Auth request failed: ${res.status}`,
+        res.status
+      );
+    }
+    return body.data;
+  }
+
+  if (!res.ok) {
+    const fallback = body as { detail?: string; message?: string };
+    throw new AuthError(
+      fallback.detail ??
+        fallback.message ??
+        `Auth request failed: ${res.status}`,
+      res.status
+    );
+  }
+
+  return body as T;
 }
 
 function getConfig(): AutoTaskEndpointConfig {
   return getEndpointConfig();
 }
 
+async function resolveAuthUser(
+  tokenData: AuthTokenData,
+  fallbackUser: AuthUserResponse
+): Promise<AuthUserResponse> {
+  if (tokenData.user) {
+    return tokenData.user;
+  }
+  return fallbackUser;
+}
+
+function sessionUserToAuthUser(user: StoredAuthSession["user"]): AuthUserResponse {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.displayName,
+  };
+}
+
 export async function loginWithCredentials(
   account: string,
   password: string
 ): Promise<StoredAuthSession> {
-  debugger;
   const config = getConfig();
-  const tokens = await authFetch<AuthTokenResponse>(
+  const tokenData = await authFetch<AuthTokenData>(
     buildAuthUrl(config, "/account-login"),
     {
       method: "POST",
       body: JSON.stringify({ account, password }),
     }
-  );
+  ); 
+  if (!tokenData.user) {
+    throw new AuthError("登录响应缺少用户信息", 500);
+  }
 
-  const me = await authFetch<AuthMeResponse>(buildAuthUrl(config, "/me"), {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${tokens.access_token}`,
-    },
-  });
-
-  const session = toStoredSession(tokens, me);
+  const session = toStoredSession(tokenData, tokenData.user);
   await saveSession(session);
   return session;
 }
 
 export function fetchMe(accessToken: string): Promise<AuthMeResponse> {
   const config = getConfig();
+  debugger;
   return authFetch<AuthMeResponse>(buildAuthUrl(config, "/me"), {
     method: "GET",
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -102,7 +136,7 @@ export async function refreshSession(): Promise<StoredAuthSession | null> {
 
   const config = getConfig();
   try {
-    const tokens = await authFetch<AuthTokenResponse>(
+    const tokenData = await authFetch<AuthTokenData>(
       buildAuthUrl(config, "/refresh"),
       {
         method: "POST",
@@ -110,8 +144,11 @@ export async function refreshSession(): Promise<StoredAuthSession | null> {
       }
     );
 
-    const me = await fetchMe(tokens.access_token);
-    const session = toStoredSession(tokens, me);
+    const user = await resolveAuthUser(
+      tokenData,
+      sessionUserToAuthUser(current.user)
+    );
+    const session = toStoredSession(tokenData, user);
     await saveSession(session);
     return session;
   } catch {

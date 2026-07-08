@@ -7,6 +7,9 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
+    "start:debug": "electron-forge start --inspect-electron",
+    "start:debug:brk": "electron-forge start --inspect-brk-electron",
+    "start:debug:log": "electron-forge start --inspect-brk-electron --enable-logging",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",

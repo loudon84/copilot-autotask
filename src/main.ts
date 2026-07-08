@@ -6,6 +6,7 @@ import {
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
 import { UpdateSourceType, updateElectronApp } from "update-electron-app";
+import { clearSession } from "@/main/auth/token-store";
 import { ipcContext } from "@/ipc/context";
 import { webWorkspaceManager } from "@/ipc/web-workspace/workspace-manager";
 import { IPC_CHANNELS, inDevelopment } from "./constants";
@@ -72,6 +73,9 @@ async function setupORPC() {
 
 app.whenReady().then(async () => {
   try {
+    // TODO: 临时调试用，验证登录全流程后删除
+    await clearSession();
+
     createWindow();
     await installExtensions();
     
