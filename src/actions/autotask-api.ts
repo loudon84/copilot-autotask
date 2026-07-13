@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/client";
 import { ipc } from "@/ipc/manager";
 
 export interface AutotaskApiRequestInput {
@@ -34,6 +35,21 @@ function normalizeQuery(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function toApiClientError(err: unknown): ApiClientError {
+  if (err instanceof ApiClientError) {
+    return err;
+  }
+
+  if (err instanceof ORPCError && err.code === "AUTOTASK_API_ERROR") {
+    const status =
+      typeof err.status === "number" ? err.status : Number(err.status) || 500;
+    return new ApiClientError(err.message, status, err.data);
+  }
+
+  const message = err instanceof Error ? err.message : "API 请求失败";
+  return new ApiClientError(message, 500);
+}
+
 export async function requestAutotaskApi<T>(
   input: AutotaskApiRequestInput
 ): Promise<T> {
@@ -45,7 +61,6 @@ export async function requestAutotaskApi<T>(
       query: normalizeQuery(input.query),
     })) as T;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "API 请求失败";
-    throw new ApiClientError(message, 500);
+    throw toApiClientError(err);
   }
 }

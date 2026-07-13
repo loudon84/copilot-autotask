@@ -22,10 +22,57 @@ describe("dto-mappers", () => {
     expect(result[0]?.id).toBe("1");
   });
 
+  it("unwraps envelope for list response", () => {
+    const result = mapListResponse<{ id: string }>({
+      code: 0,
+      message: "success",
+      data: [{ id: "1" }],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("1");
+  });
+
+  it("throws when envelope code is not 0", () => {
+    expect(() =>
+      mapListResponse<{ id: string }>({
+        code: 1,
+        message: "failed",
+        data: [],
+      })
+    ).toThrow("failed");
+  });
+
+  it("unwraps envelope with nested items", () => {
+    const result = mapListResponse<{ id: string }>({
+      code: 0,
+      message: "success",
+      data: { items: [{ id: "1" }, { id: "2" }] },
+    });
+    expect(result).toHaveLength(2);
+  });
+
+  it("returns empty array when envelope data is not a list", () => {
+    const result = mapListResponse<{ id: string }>({
+      code: 0,
+      message: "success",
+      data: { today_total: 0 },
+    });
+    expect(result).toEqual([]);
+  });
+
   it("maps single item response", () => {
     const result = mapItemResponse<{ status: string }>({
       status: "READY",
     });
     expect(result.status).toBe("READY");
+  });
+
+  it("unwraps envelope for single item response", () => {
+    const result = mapItemResponse<{ ready: number }>({
+      code: 0,
+      message: "success",
+      data: { ready: 3 },
+    });
+    expect(result.ready).toBe(3);
   });
 });

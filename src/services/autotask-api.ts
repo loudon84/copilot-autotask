@@ -8,7 +8,11 @@ import type { DashboardData } from "@/types/dashboard";
 import type { HumanAction } from "@/types/human-action";
 import type { RpaComponent } from "@/types/rpa-component";
 import type { AppSettings } from "@/types/settings";
-import type { SRMPortal } from "@/types/srm-portal";
+import type {
+  CreatePortalAccountInput,
+  PortalAccount,
+  UpdatePortalAccountInput,
+} from "@/types/portal-account";
 import type { TaskRun } from "@/types/task-run";
 import type { Worker } from "@/types/worker";
 import type { WorkflowTemplate } from "@/types/workflow";
@@ -91,9 +95,52 @@ export const autotaskApi = {
   },
 
   portalAccounts: {
-    list: (): Promise<SRMPortal[]> => pickApi().getSrmPortals(),
-    get: (id: string): Promise<SRMPortal | undefined> =>
+    list: (): Promise<PortalAccount[]> => pickApi().getSrmPortals(),
+    get: (id: string): Promise<PortalAccount | undefined> =>
       pickApi().getSrmPortalById(id),
+    create: (input: CreatePortalAccountInput): Promise<PortalAccount> => {
+      const api = pickApi();
+      if (
+        "createPortalAccount" in api &&
+        typeof api.createPortalAccount === "function"
+      ) {
+        return api.createPortalAccount(input);
+      }
+      throw new Error("当前模式不支持创建门户");
+    },
+    update: (
+      id: string,
+      patch: UpdatePortalAccountInput
+    ): Promise<PortalAccount> => {
+      const api = pickApi();
+      if (
+        "updatePortalAccount" in api &&
+        typeof api.updatePortalAccount === "function"
+      ) {
+        return api.updatePortalAccount(id, patch);
+      }
+      throw new Error("当前模式不支持更新门户");
+    },
+    delete: (id: string): Promise<void> => {
+      const api = pickApi();
+      if (
+        "deletePortalAccount" in api &&
+        typeof api.deletePortalAccount === "function"
+      ) {
+        return api.deletePortalAccount(id);
+      }
+      throw new Error("当前模式不支持删除门户");
+    },
+    testOpen: (id: string): Promise<PortalAccount | void> => {
+      const api = pickApi();
+      if (
+        "testOpenPortalAccount" in api &&
+        typeof api.testOpenPortalAccount === "function"
+      ) {
+        return api.testOpenPortalAccount(id);
+      }
+      throw new Error("当前模式不支持打开门户");
+    },
   },
 
   workflowTemplates: {

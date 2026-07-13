@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/command";
 import { autotaskApi } from "@/services/autotask-api";
 import type { AutomationTask } from "@/types/automation-task";
-import type { SRMPortal } from "@/types/srm-portal";
+import type { PortalAccount } from "@/types/portal-account";
 import type { TaskRun } from "@/types/task-run";
 import type { WorkflowTemplate } from "@/types/workflow";
 
 interface SearchResults {
-  portals: SRMPortal[];
+  portals: PortalAccount[];
   runs: TaskRun[];
   tasks: AutomationTask[];
   workflows: WorkflowTemplate[];
@@ -106,7 +106,7 @@ export function GlobalSearch() {
                     });
                   }}
                 >
-                  {portal.name}
+                  {portal.portalName}
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -1,7 +1,9 @@
 import type { ClientOpenMode } from "@/types/web-tab";
 
+/** @deprecated Use PortalAccount from @/types/portal-account */
 export type PortalLoginState = "unknown" | "valid" | "expired";
 
+/** @deprecated Use PortalAccount from @/types/portal-account */
 export interface SRMPortal {
   id: string;
   customerName: string;

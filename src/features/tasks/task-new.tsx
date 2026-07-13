@@ -52,8 +52,8 @@ export function TaskNewPage() {
       {
         title,
         taskType: selectedWorkflow?.code ?? "custom",
-        customerName: selectedPortal?.customerName ?? "",
-        srmPortalName: selectedPortal?.name ?? "",
+        customerName: selectedPortal?.erpEntityName ?? "",
+        srmPortalName: selectedPortal?.portalName ?? "",
         workflowTemplateId: workflowId,
         workflowTemplateName: selectedWorkflow?.name ?? "",
         status: "READY",
@@ -136,10 +136,10 @@ export function TaskNewPage() {
               </SelectTrigger>
               <SelectContent>
                 {portals
-                  .filter((p) => p.status === "enabled")
+                  .filter((p) => p.status === "ENABLED")
                   .map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name}
+                      {p.portalName}
                     </SelectItem>
                   ))}
               </SelectContent>

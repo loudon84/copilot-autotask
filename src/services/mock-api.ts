@@ -25,7 +25,12 @@ import type { DashboardData } from "@/types/dashboard";
 import type { HumanAction } from "@/types/human-action";
 import type { RpaComponent } from "@/types/rpa-component";
 import type { AppSettings } from "@/types/settings";
-import type { SRMPortal } from "@/types/srm-portal";
+import type {
+  CreatePortalAccountInput,
+  PortalAccount,
+  UpdatePortalAccountInput,
+} from "@/types/portal-account";
+import { mapPortalAccount } from "@/services/dto-mappers";
 import type { TaskRun } from "@/types/task-run";
 import type { Worker } from "@/types/worker";
 import type { WorkflowTemplate } from "@/types/workflow";
@@ -51,19 +56,23 @@ function now() {
   return new Date().toISOString().replace("T", " ").slice(0, 19);
 }
 
-function getPortals(): SRMPortal[] {
-  return srmPortalsData as unknown as SRMPortal[];
+function getPortals(): PortalAccount[] {
+  return mockPortalStore.map((p) => mapPortalAccount(p));
 }
 
-function findPortalById(portalId: string): SRMPortal | undefined {
+const mockPortalStore: PortalAccount[] = (
+  srmPortalsData as unknown as Record<string, unknown>[]
+).map((item) => mapPortalAccount(item));
+
+function findPortalById(portalId: string): PortalAccount | undefined {
   return getPortals().find((p) => p.id === portalId);
 }
 
-function findPortalByTask(task: AutomationTask): SRMPortal | undefined {
+function findPortalByTask(task: AutomationTask): PortalAccount | undefined {
   if (task.portalId) {
     return findPortalById(task.portalId);
   }
-  return getPortals().find((p) => p.name === task.srmPortalName);
+  return getPortals().find((p) => p.portalName === task.srmPortalName);
 }
 
 function appendAuditLog(entry: Omit<AuditLog, "id">) {
@@ -143,11 +152,74 @@ export const mockApi = {
 
   getWorkers: async (): Promise<Worker[]> => delay(workersData as Worker[]),
 
-  getSrmPortals: async (): Promise<SRMPortal[]> =>
-    delay(srmPortalsData as unknown as SRMPortal[]),
+  getSrmPortals: async (): Promise<PortalAccount[]> => delay(getPortals()),
 
-  getSrmPortalById: async (id: string): Promise<SRMPortal | undefined> =>
-    delay((srmPortalsData as unknown as SRMPortal[]).find((p) => p.id === id)),
+  getSrmPortalById: async (id: string): Promise<PortalAccount | undefined> =>
+    delay(findPortalById(id)),
+
+  createPortalAccount: async (
+    input: CreatePortalAccountInput
+  ): Promise<PortalAccount> => {
+    const timestamp = now();
+    const sessionPartition =
+      input.clientSessionPartition ||
+      `persist:portal-${input.erpEntityCode.toLowerCase()}`;
+    const created: PortalAccount = {
+      ...input,
+      id: `portal_${Date.now()}`,
+      tenantId: "mock-tenant",
+      clientSessionPartition: sessionPartition,
+      createdBy: "mock-user",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    mockPortalStore.push(created);
+    return delay(created);
+  },
+
+  updatePortalAccount: async (
+    id: string,
+    patch: UpdatePortalAccountInput
+  ): Promise<PortalAccount> => {
+    const index = mockPortalStore.findIndex((p) => p.id === id);
+    if (index < 0) {
+      throw new Error("门户不存在");
+    }
+    const updated: PortalAccount = {
+      ...mockPortalStore[index]!,
+      ...patch,
+      updatedAt: now(),
+    };
+    mockPortalStore[index] = updated;
+    return delay(updated);
+  },
+
+  deletePortalAccount: async (id: string): Promise<void> => {
+    const index = mockPortalStore.findIndex((p) => p.id === id);
+    if (index < 0) {
+      throw new Error("门户不存在");
+    }
+    mockPortalStore.splice(index, 1);
+    return delay(undefined);
+  },
+
+  testOpenPortalAccount: async (id: string): Promise<PortalAccount | void> => {
+    const portal = findPortalById(id);
+    if (!portal) {
+      throw new Error("门户不存在");
+    }
+    if (portal.status !== "ENABLED") {
+      throw new Error("门户已禁用，无法打开");
+    }
+    const index = mockPortalStore.findIndex((p) => p.id === id);
+    if (index >= 0) {
+      mockPortalStore[index] = {
+        ...portal,
+        updatedAt: now(),
+      };
+    }
+    return delay(mockPortalStore[index]);
+  },
 
   getRpaComponents: async (): Promise<RpaComponent[]> =>
     delay(rpaComponentsData as RpaComponent[]),
@@ -178,8 +250,10 @@ export const mockApi = {
     );
     const portals = getPortals().filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.customerName.toLowerCase().includes(q)
+        p.portalName.toLowerCase().includes(q) ||
+        p.erpEntityName.toLowerCase().includes(q) ||
+        p.erpEntityCode.toLowerCase().includes(q) ||
+        p.loginAccount.toLowerCase().includes(q)
     );
     const runs = (taskRunsData as TaskRun[]).filter(
       (r) =>

@@ -69,6 +69,9 @@ async function doRequest<T>(
     }
     throw new AutotaskApiError("登录已过期", 401);
   }
+  if (res.status === 403) {
+    throw new AutotaskApiError("用户无权限!", 403);
+  }
 
   if (!res.ok) {
     let message = `API request failed: ${res.status}`;

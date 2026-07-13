@@ -40,7 +40,6 @@ async function authFetch<T>(
       ...options.headers,
     },
   });
-  debugger;
   if (res.status === 204) {
     return undefined as T;
   }
@@ -52,8 +51,7 @@ async function authFetch<T>(
     throw new AuthError(`Auth request failed: ${res.status}`, res.status);
   }
 
-  if (isNodeskclawApiEnvelope<T>(body)) {
-    debugger;
+  if (isNodeskclawApiEnvelope<T>(body)) {    
     if (body.code !== 0 || !res.ok) {
       throw new AuthError(
         body.message || `Auth request failed: ${res.status}`,

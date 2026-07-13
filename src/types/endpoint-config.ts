@@ -17,8 +17,8 @@ export const defaultAutoTaskEndpointConfig: AutoTaskEndpointConfig = {
 export type ApiMode = "mock" | "remote";
 
 export function getApiMode(): ApiMode {
-  const mode = import.meta.env.VITE_AUTOTASK_API_MODE ?? "mock";
-  return mode === "remote" ? "remote" : "mock";
+  const mode = import.meta.env.VITE_AUTOTASK_API_MODE ?? "remote";
+  return mode === "mock" ? "mock" : "remote";
 }
 
 export function buildAuthUrl(

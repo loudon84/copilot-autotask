@@ -22,7 +22,6 @@ export const getEndpointConfig = os.handler(async () => {
 });
 
 export const login = os.input(loginInputSchema).handler(async ({ input }) => {
-  debugger;
   await loginWithCredentials(input.account, input.password);
   return getPublicAuthState();
 });

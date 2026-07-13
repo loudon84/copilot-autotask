@@ -6,6 +6,7 @@ import {
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
 import { UpdateSourceType, updateElectronApp } from "update-electron-app";
+import { setupApplicationMenu } from "@/main/app-menu";
 import { clearSession } from "@/main/auth/token-store";
 import { ipcContext } from "@/ipc/context";
 import { webWorkspaceManager } from "@/ipc/web-workspace/workspace-manager";
@@ -18,6 +19,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    autoHideMenuBar: false,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -77,6 +79,7 @@ app.whenReady().then(async () => {
     await clearSession();
 
     createWindow();
+    setupApplicationMenu(() => ipcContext.mainWindow);
     await installExtensions();
     
     await setupORPC();

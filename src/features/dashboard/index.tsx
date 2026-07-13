@@ -97,7 +97,15 @@ export function DashboardPage() {
     return <MockLoading />;
   }
 
-  const stats = dashboard?.stats;
+  const stats = dashboard?.stats ?? {
+    pending: 0,
+    running: 0,
+    waitingHuman: 0,
+    failed: 0,
+    completedToday: 0,
+    successRate: 0,
+  };
+  const taskTypeDistribution = dashboard?.taskTypeDistribution ?? [];
   const runningTasks = tasks.filter(
     (t) => t.status === "RUNNING" || t.status === "QUEUED"
   );
@@ -110,12 +118,12 @@ export function DashboardPage() {
       <PageHeader description="自动化任务平台整体运行状态" title="工作台" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        <StatCard title="待执行" value={stats?.pending ?? 0} />
-        <StatCard title="执行中" value={stats?.running ?? 0} />
-        <StatCard title="待人工" value={stats?.waitingHuman ?? 0} />
-        <StatCard title="失败" value={stats?.failed ?? 0} />
-        <StatCard title="今日完成" value={stats?.completedToday ?? 0} />
-        <StatCard suffix="%" title="成功率" value={stats?.successRate ?? 0} />
+        <StatCard title="待执行" value={stats.pending} />
+        <StatCard title="执行中" value={stats.running} />
+        <StatCard title="待人工" value={stats.waitingHuman} />
+        <StatCard title="失败" value={stats.failed} />
+        <StatCard title="今日完成" value={stats.completedToday} />
+        <StatCard suffix="%" title="成功率" value={stats.successRate} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -146,7 +154,7 @@ export function DashboardPage() {
             <h3 className="mb-3 font-semibold text-lg">任务类型分布</h3>
             <Card>
               <CardContent className="space-y-3 pt-4">
-                {dashboard?.taskTypeDistribution.map((item) => (
+                {taskTypeDistribution.map((item) => (
                   <div className="space-y-1" key={item.taskType}>
                     <div className="flex justify-between text-sm">
                       <span>{item.label}</span>
@@ -158,7 +166,7 @@ export function DashboardPage() {
                       <div
                         className="h-full rounded-full bg-primary"
                         style={{
-                          width: `${Math.min(100, (item.count / (stats?.completedToday ?? 1)) * 100)}%`,
+                          width: `${Math.min(100, (item.count / (stats.completedToday || 1)) * 100)}%`,
                         }}
                       />
                     </div>

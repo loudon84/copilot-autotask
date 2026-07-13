@@ -1,28 +1,54 @@
 import { useState } from "react";
-import { LoginStateBadge } from "@/components/business/login-state-badge";
 import { PortalActions } from "@/components/business/portal-actions";
 import { EmptyState } from "@/components/common/empty-state";
 import { MockLoading } from "@/components/common/mock-loading";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePortalAccount } from "@/features/srm-portals/api/use-portal-accounts";
+import { PortalAccountFormDialog } from "@/features/srm-portals/components/portal-account-form-dialog";
+import { usePortalWritePermission } from "@/features/srm-portals/hooks/use-portal-write-permission";
+import { Pencil } from "lucide-react";
 
 const openModeLabels = {
   webcontents: "内置 Web 工作区",
   system_browser: "系统浏览器",
 } as const;
 
-export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
-  const [tab, setTab] = useState("basic");
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <Label className="text-muted-foreground">{label}</Label>
+      <Input className="mt-1" readOnly value={value} />
+    </div>
+  );
+}
 
-  const { data: portal, isLoading } = usePortalAccount(portalId);
+export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const canWrite = usePortalWritePermission((s) => s.canWrite);
+
+  const { data: portal, isLoading, isError, refetch } = usePortalAccount(portalId);
 
   if (isLoading) {
     return <MockLoading />;
   }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <EmptyState description="无法加载门户详情" title="加载失败" />
+        <div className="flex justify-center">
+          <Button onClick={() => refetch()} variant="outline">
+            重试
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!portal) {
     return <EmptyState title="门户不存在" />;
   }
@@ -31,149 +57,58 @@ export function SrmPortalDetailPage({ portalId }: { portalId: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-bold text-2xl">{portal.name}</h2>
-          <p className="text-muted-foreground">{portal.customerName}</p>
+          <h2 className="font-bold text-2xl">{portal.portalName}</h2>
+          <p className="text-muted-foreground">{portal.erpEntityName}</p>
         </div>
-        <PortalActions portal={portal} />
+        <div className="flex flex-wrap items-center gap-2">
+          {canWrite && (
+            <Button onClick={() => setEditOpen(true)} variant="outline">
+              <Pencil className="mr-2 h-4 w-4" />
+              编辑
+            </Button>
+          )}
+          <PortalActions portal={portal} />
+        </div>
       </div>
 
-      <Tabs onValueChange={setTab} value={tab}>
-        <TabsList>
-          <TabsTrigger value="basic">基础信息</TabsTrigger>
-          <TabsTrigger value="login">登录配置</TabsTrigger>
-          <TabsTrigger value="locators">页面定位器</TabsTrigger>
-          <TabsTrigger value="mapping">字段映射</TabsTrigger>
-          <TabsTrigger value="session">Session 配置</TabsTrigger>
-          <TabsTrigger value="test">测试记录</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
+          <Field label="客户编码" value={portal.erpEntityCode} />
+          <Field label="客户名称" value={portal.erpEntityName} />
+          <Field label="门户名称" value={portal.portalName} />
+          <Field label="门户地址" value={portal.portalUrl} />
+          <Field label="登录账号" value={portal.loginAccount || "-"} />
+          <Field
+            label="打开方式"
+            value={openModeLabels[portal.clientOpenMode]}
+          />
+          <Field
+            label="Session 分区"
+            value={portal.clientSessionPartition}
+          />
+          <div>
+            <Label className="text-muted-foreground">状态</Label>
+            <div className="mt-1">
+              <Badge
+                variant={
+                  portal.status === "ENABLED" ? "default" : "secondary"
+                }
+              >
+                {portal.status === "ENABLED" ? "启用" : "禁用"}
+              </Badge>
+            </div>
+          </div>
+          <Field label="创建时间" value={portal.createdAt} />
+          <Field label="更新时间" value={portal.updatedAt} />
+        </CardContent>
+      </Card>
 
-        <TabsContent value="basic">
-          <Card>
-            <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
-              <Field label="客户名称" value={portal.customerName} />
-              <Field label="门户名称" value={portal.name} />
-              <Field label="门户 URL" value={portal.url} />
-              <Field label="登录方式" value={portal.loginType} />
-              <Field
-                label="客户端打开方式"
-                value={openModeLabels[portal.clientOpenMode]}
-              />
-              <Field
-                label="Session 分区"
-                value={portal.clientSessionPartition}
-              />
-              <Field
-                label="服务器 RPA Profile"
-                value={portal.serverRpaProfileId ?? "-"}
-              />
-              <div>
-                <Label className="text-muted-foreground">状态</Label>
-                <div className="mt-1">
-                  <Badge
-                    variant={
-                      portal.status === "enabled" ? "default" : "secondary"
-                    }
-                  >
-                    {portal.status === "enabled" ? "启用" : "禁用"}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="login">
-          <Card>
-            <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
-              <Field
-                label="登录页 URL"
-                value={portal.loginPageUrl ?? portal.url}
-              />
-              <Field label="账号占位符" value="srm_user@customer.com" />
-              <Field label="密码占位符" value="********" />
-              <Field label="MFA 策略" value={portal.mfaPolicy ?? "none"} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="locators">
-          <Card>
-            <CardContent className="space-y-3 pt-4">
-              {Object.entries(portal.locatorProfile).map(([key, value]) => (
-                <div className="grid gap-1 text-sm sm:grid-cols-2" key={key}>
-                  <span className="font-mono text-muted-foreground">{key}</span>
-                  <code className="rounded bg-muted px-2 py-1 text-xs">
-                    {value}
-                  </code>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mapping">
-          <Card>
-            <CardContent className="space-y-3 pt-4">
-              {portal.fieldMapping ? (
-                Object.entries(portal.fieldMapping).map(([key, value]) => (
-                  <div className="grid gap-1 text-sm sm:grid-cols-2" key={key}>
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="font-mono">{value}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-sm">暂无字段映射</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="session">
-          <Card>
-            <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
-              <Field
-                label="Session 分区"
-                value={portal.clientSessionPartition}
-              />
-              <Field
-                label="客户端打开方式"
-                value={openModeLabels[portal.clientOpenMode]}
-              />
-              <Field
-                label="服务器 RPA Profile"
-                value={portal.serverRpaProfileId ?? "-"}
-              />
-              <Field label="最近打开时间" value={portal.lastOpenedAt ?? "-"} />
-              <div>
-                <Label className="text-muted-foreground">登录态</Label>
-                <div className="mt-1">
-                  <LoginStateBadge state={portal.loginState} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="test">
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-muted-foreground text-sm">
-                Mock 测试记录：点击【测试打开】可在 Web
-                工作区中打开登录页进行验证。
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-muted-foreground">{label}</Label>
-      <Input className="bg-muted/50" readOnly value={value} />
+      <PortalAccountFormDialog
+        mode="edit"
+        onOpenChange={setEditOpen}
+        open={editOpen}
+        portal={portal}
+      />
     </div>
   );
 }

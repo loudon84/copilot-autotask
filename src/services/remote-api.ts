@@ -9,11 +9,64 @@ import type { DashboardData } from "@/types/dashboard";
 import type { HumanAction } from "@/types/human-action";
 import type { RpaComponent } from "@/types/rpa-component";
 import type { AppSettings } from "@/types/settings";
-import type { SRMPortal } from "@/types/srm-portal";
+import type { PortalAccount, CreatePortalAccountInput, UpdatePortalAccountInput } from "@/types/portal-account";
+import {
+  createPortalAccount as remoteCreatePortalAccount,
+  deletePortalAccount as remoteDeletePortalAccount,
+  getPortalAccount as remoteGetPortalAccount,
+  listPortalAccounts as remoteListPortalAccounts,
+  testOpenPortalAccount as remoteTestOpenPortalAccount,
+  updatePortalAccount as remoteUpdatePortalAccount,
+} from "./autotask-api/portal-accounts";
 import type { TaskRun } from "@/types/task-run";
 import type { Worker } from "@/types/worker";
 import type { WorkflowTemplate } from "@/types/workflow";
 import { mapItemResponse, mapListResponse } from "./dto-mappers";
+
+type RemoteDashboardSummary = {
+  todayTotal?: number;
+  ready?: number;
+  pending?: number;
+  running?: number;
+  waitingHuman?: number;
+  failed?: number;
+  success?: number;
+  completedToday?: number;
+  successRate?: number;
+  onlineWorkers?: number;
+  stats?: DashboardData["stats"];
+  taskTypeDistribution?: DashboardData["taskTypeDistribution"];
+};
+
+function mapDashboardSummary(data: unknown): DashboardData {
+  const summary = mapItemResponse<RemoteDashboardSummary>(data);
+
+  if (summary.stats) {
+    return {
+      stats: {
+        pending: summary.stats.pending ?? 0,
+        running: summary.stats.running ?? 0,
+        waitingHuman: summary.stats.waitingHuman ?? 0,
+        failed: summary.stats.failed ?? 0,
+        completedToday: summary.stats.completedToday ?? 0,
+        successRate: summary.stats.successRate ?? 0,
+      },
+      taskTypeDistribution: summary.taskTypeDistribution ?? [],
+    };
+  }
+
+  return {
+    stats: {
+      pending: summary.pending ?? summary.ready ?? 0,
+      running: summary.running ?? 0,
+      waitingHuman: summary.waitingHuman ?? 0,
+      failed: summary.failed ?? 0,
+      completedToday: summary.completedToday ?? summary.success ?? 0,
+      successRate: summary.successRate ?? 0,
+    },
+    taskTypeDistribution: summary.taskTypeDistribution ?? [],
+  };
+}
 
 export const remoteApi = {
   getDashboard: async (): Promise<DashboardData> => {
@@ -21,7 +74,7 @@ export const remoteApi = {
       method: "GET",
       path: "/dashboard/summary",
     });
-    return mapItemResponse<DashboardData>(data);
+    return mapDashboardSummary(data);
   },
 
   getTasks: async (): Promise<AutomationTask[]> => {
@@ -196,25 +249,25 @@ export const remoteApi = {
     return mapListResponse<Worker>(data);
   },
 
-  getSrmPortals: async (): Promise<SRMPortal[]> => {
-    const data = await requestAutotaskApi<unknown>({
-      method: "GET",
-      path: "/portal-accounts",
-    });
-    return mapListResponse<SRMPortal>(data);
-  },
+  getSrmPortals: async (): Promise<PortalAccount[]> => remoteListPortalAccounts(),
 
-  getSrmPortalById: async (id: string): Promise<SRMPortal | undefined> => {
-    try {
-      const data = await requestAutotaskApi<unknown>({
-        method: "GET",
-        path: `/portal-accounts/${id}`,
-      });
-      return mapItemResponse<SRMPortal>(data);
-    } catch {
-      return;
-    }
-  },
+  getSrmPortalById: async (id: string): Promise<PortalAccount | undefined> =>
+    remoteGetPortalAccount(id),
+
+  createPortalAccount: async (
+    input: CreatePortalAccountInput
+  ): Promise<PortalAccount> => remoteCreatePortalAccount(input),
+
+  updatePortalAccount: async (
+    id: string,
+    patch: UpdatePortalAccountInput
+  ): Promise<PortalAccount> => remoteUpdatePortalAccount(id, patch),
+
+  deletePortalAccount: async (id: string): Promise<void> =>
+    remoteDeletePortalAccount(id),
+
+  testOpenPortalAccount: async (id: string): Promise<PortalAccount | void> =>
+    remoteTestOpenPortalAccount(id),
 
   getRpaComponents: async (): Promise<RpaComponent[]> => {
     const data = await requestAutotaskApi<unknown>({
@@ -320,8 +373,8 @@ export const remoteApi = {
       ),
       portals: portals.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.customerName.toLowerCase().includes(q)
+          p.portalName.toLowerCase().includes(q) ||
+          p.erpEntityName.toLowerCase().includes(q)
       ),
       runs: runs.filter(
         (r) =>

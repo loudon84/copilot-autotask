@@ -17,8 +17,8 @@ export function WorkerStatusCard({ worker }: { worker: Worker }) {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{worker.name}</CardTitle>
-          <Badge variant="outline" className={cn("border-0", config.className)}>
-            {config.label}
+          <Badge variant="outline">
+            {config ? config.label : worker.status}
           </Badge>
         </div>
       </CardHeader>
